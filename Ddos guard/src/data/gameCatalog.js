@@ -1,0 +1,56 @@
+export const GAME_CATALOG = [
+  {
+    id: 'shield-hop',
+    title: 'Shield Hop',
+    subtitle: 'Doodle Jump x Edge Firewall',
+    teaser: 'Прыгаем по firewall-узлам и не даем атаке продавить периметр.',
+    durationSeconds: 75,
+    controls: 'A / D или стрелки влево-вправо',
+    goal: 'Удержаться на высоте до конца волны.',
+    accent: 'brand-ink',
+  },
+  {
+    id: 'edge-glide',
+    title: 'Edge Glide',
+    subtitle: 'Flappy Bird x Traffic Tunnels',
+    teaser: 'Проводим легитимный трафик через защитные коридоры и обходим всплески нагрузки.',
+    durationSeconds: 70,
+    controls: 'Пробел, клик или тап',
+    goal: 'Прожить до конца раунда и набрать максимум проходов.',
+    accent: 'brand',
+  },
+  {
+    id: 'bot-slicer',
+    title: 'Bot Slicer',
+    subtitle: 'Fruit Ninja x Anti-Bot',
+    teaser: 'Рубим вредоносных ботов свайпом, но не задеваем легитимных пользователей.',
+    durationSeconds: 60,
+    controls: 'Мышь или палец по экрану',
+    goal: 'Срезать максимум ботов и не потерять устойчивость.',
+    accent: 'brand-soft',
+  },
+  {
+    id: 'infra-stack',
+    title: 'Infra Stack',
+    subtitle: 'Tower Builder x Network Layers',
+    teaser: 'Собираем защищенный стек инфраструктуры, а DDoS-Guard усиливает каждый слой.',
+    durationSeconds: 75,
+    controls: 'Пробел, клик или тап',
+    goal: 'Выстроить устойчивую башню из 10 слоев.',
+    accent: 'brand',
+  },
+  {
+    id: 'packet-catcher',
+    title: 'Packet Catcher',
+    subtitle: 'Catcher x Traffic Filtering',
+    teaser: 'Ловим чистые пакеты и уворачиваемся от вредоносного трафика.',
+    durationSeconds: 70,
+    controls: 'A / D, стрелки или мышь',
+    goal: 'Сохранить фильтр живым до конца волны.',
+    accent: 'brand-soft',
+  },
+];
+
+export function getGameById(id) {
+  return GAME_CATALOG.find((game) => game.id === id) ?? GAME_CATALOG[0];
+}

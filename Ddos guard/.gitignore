@@ -1,0 +1,61 @@
+node_modules
+dist
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/config.local.php
+backend/data/state.json
+# ===== Node.js / npm =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ===== Vite / Build =====
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# ===== PHP / Backend =====
+**/config.local.php
+**/config.local.*.php
+**/backend/data/state.json
+**/backend/data/*.json
+**/backend/logs/
+**/backend/uploads/
+*.log
+
+# ===== Environment / Secrets =====
+.env
+.env.*
+!.env.example
+!.env.*.example
+secrets.json
+credentials.json
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ===== IDE / Editor =====
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.suo
+*.user
+*.swp
+*.swo
+*~
+
+# ===== Misc =====
+*.pid
+*.seed
+*.bak
+*.tmp
+.cache/
