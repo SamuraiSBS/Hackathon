@@ -77,8 +77,15 @@ const initialTelegramState = phpApiEnabled
       error: '',
     };
 
+const GAME_IDS = new Set(GAME_CATALOG.map((g) => g.id));
+
 function readRoute() {
-  return window.location.hash === '#/admin' ? 'admin' : 'stand';
+  return window.location.pathname === '/admin' ? 'admin' : 'stand';
+}
+
+function readGameIdFromPath() {
+  const segment = window.location.pathname.slice(1);
+  return GAME_IDS.has(segment) ? segment : null;
 }
 
 function isUnauthorized(error) {
@@ -101,6 +108,7 @@ export default function App() {
   const [sessionId, setSessionId] = useState('');
   const [player, setPlayer] = useState(null);
   const [selectedGameId, setSelectedGameId] = useState(GAME_CATALOG[0].id);
+  const [pendingGameId, setPendingGameId] = useState(readGameIdFromPath);
   const [result, setResult] = useState(null);
   const [adminSnapshot, setAdminSnapshot] = useState(emptyAdminSnapshot);
   const [appError, setAppError] = useState('');
@@ -140,9 +148,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    const onHashChange = () => setRoute(readRoute());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const onPopState = () => {
+      setRoute(readRoute());
+      if (window.location.pathname === '/') resetStandFlow();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   function resetStandFlow() {
@@ -151,7 +162,11 @@ export default function App() {
     setPlayer(null);
     setResult(null);
     setSelectedGameId(GAME_CATALOG[0].id);
+    setPendingGameId(null);
     setTelegramAutoSubmitKey('');
+    if (window.location.pathname !== '/') {
+      window.history.pushState(null, '', '/');
+    }
     setTelegramAuth((current) => ({
       ...current,
       status: phpApiEnabled ? 'idle' : 'disabled',
@@ -520,7 +535,14 @@ export default function App() {
       setSessionId(response.sessionId);
       setPlayer(response.player);
       await clearTelegramState();
-      setPhase('start');
+      if (pendingGameId) {
+        setSelectedGameId(pendingGameId);
+        setPendingGameId(null);
+        setPhase('game');
+        window.history.replaceState(null, '', `/${pendingGameId}`);
+      } else {
+        setPhase('start');
+      }
       await refreshPublicSnapshot();
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -546,6 +568,7 @@ export default function App() {
   function handleSelectGame(gameId) {
     setSelectedGameId(gameId);
     setPhase('game');
+    window.history.pushState(null, '', `/${gameId}`);
   }
 
   async function handleGameComplete(gameResult) {
@@ -696,7 +719,8 @@ export default function App() {
       requiresPhpApi: false,
     });
     setAdminSnapshot(emptyAdminSnapshot);
-    window.location.hash = '#/';
+    window.history.pushState(null, '', '/');
+    setRoute('stand');
   }
 
   function handleTelegramLogin() {
