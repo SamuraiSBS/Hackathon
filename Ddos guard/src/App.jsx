@@ -329,7 +329,18 @@ export default function App() {
             passwordConfigured: true,
             requiresPhpApi: false,
           });
-          await refreshAdminSnapshot();
+          try {
+            await refreshAdminSnapshot();
+          } catch (snapshotError) {
+            if (!cancelled && isUnauthorized(snapshotError)) {
+              setAdminAuth({
+                status: 'unauthenticated',
+                error: adminSessionExpiredMessage,
+                passwordConfigured: true,
+                requiresPhpApi: false,
+              });
+            }
+          }
           return;
         }
 
@@ -692,13 +703,6 @@ export default function App() {
 
     try {
       await loginAdmin(password);
-      setAdminAuth({
-        status: 'authenticated',
-        error: '',
-        passwordConfigured: true,
-        requiresPhpApi: false,
-      });
-      await refreshAdminSnapshot();
     } catch (error) {
       const message = isUnauthorized(error) ? 'Неверный пароль.' : error.message || 'Не удалось выполнить вход.';
 
@@ -707,6 +711,20 @@ export default function App() {
         status: 'unauthenticated',
         error: message,
       }));
+      return;
+    }
+
+    setAdminAuth({
+      status: 'authenticated',
+      error: '',
+      passwordConfigured: true,
+      requiresPhpApi: false,
+    });
+
+    try {
+      await refreshAdminSnapshot();
+    } catch {
+      // Авторизация прошла успешно — ошибка загрузки снапшота не разлогиниваем
     }
   }
 
