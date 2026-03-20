@@ -613,7 +613,7 @@ export default function App() {
     }
   }
 
-  async function handleSelectGame(gameId) {
+  async function handleSelectGame(gameId, forceNewSession = false) {
     if (!player) {
       setPendingGameId(gameId);
       setPhase('lead');
@@ -621,7 +621,7 @@ export default function App() {
       return;
     }
 
-    if (!sessionId) {
+    if (!sessionId || forceNewSession) {
       setBusy(true);
       setAppError('');
       try {
@@ -845,8 +845,9 @@ export default function App() {
     window.location.assign(loginUrl);
   }
 
-  function restartFlow() {
-    resetGameOnly();
+  async function restartFlow() {
+    setResult(null);
+    await handleSelectGame(selectedGameId, true);
   }
 
   function handleChangePlayer() {
