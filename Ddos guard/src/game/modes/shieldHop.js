@@ -4,18 +4,18 @@ import { BasePhaserScene } from './basePhaserScene';
 const WIDTH = 960;
 const HEIGHT = 540;
 
-const GRAVITY = 980;
-const JUMP_VELOCITY = -560;
-const BOOST_VELOCITY = -720;
-const HORIZONTAL_SPEED = 260;
+const GRAVITY = 800;
+const JUMP_VELOCITY = -650;
+const BOOST_VELOCITY = -1000;
+const HORIZONTAL_SPEED = 380;
 
-const PLATFORM_COUNT = 11;
-const PLATFORM_MIN_WIDTH = 110;
-const PLATFORM_MAX_WIDTH = 170;
+const PLATFORM_COUNT = 12;
+const PLATFORM_MIN_WIDTH = 90;
+const PLATFORM_MAX_WIDTH = 150;
 const PLATFORM_HEIGHT = 14;
-const PLATFORM_GAP_MIN = 70;
-const PLATFORM_GAP_MAX = 115;
-const BOOST_CHANCE = 0.18;
+const PLATFORM_GAP_MIN = 50;
+const PLATFORM_GAP_MAX = 150;
+const BOOST_CHANCE = 0.15;
 
 const SCORE_NORMAL = 80;
 const SCORE_BOOST = 110;
@@ -158,7 +158,7 @@ class ShieldHopScene extends BasePhaserScene {
     return (
       player.body.velocity.y > 0 &&
       player.body.bottom >= platform.body.top &&
-      player.body.bottom <= platform.body.top + 20
+      player.body.bottom <= platform.body.top + 24
     );
   }
 
@@ -244,7 +244,7 @@ class ShieldHopScene extends BasePhaserScene {
       if (platform.y > cameraBottom + 50) {
         const newWidth = randomBetween(PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH);
         const newX = randomBetween(80, WIDTH - 210) + newWidth / 2;
-        const newY = this.cameras.main.scrollY - randomBetween(90, 140);
+        const newY = this.cameras.main.scrollY - randomBetween(60, 160);
         const isBoost = Math.random() < BOOST_CHANCE;
 
         platform.setPosition(newX, newY);
