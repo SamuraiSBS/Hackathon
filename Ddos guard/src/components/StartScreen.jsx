@@ -4,7 +4,7 @@ export function StartScreen({ player, onSelectGame }) {
   return (
     <section className="panel panel--feature">
       <div className="eyebrow">Игры</div>
-      <h1>{player.firstName}, выберите игру</h1>
+      <h1>{player ? `${player.firstName}, выберите игру` : 'Выберите игру'}</h1>
       <p className="panel-copy">На прохождение даётся до 2 минут. Результат сохраняется автоматически.</p>
 
       <div className="game-grid">

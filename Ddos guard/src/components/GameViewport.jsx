@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createGameEngine } from '../game/createEngine';
 import { formatTimer } from '../lib/format';
 
-export function GameViewport({ game, onComplete }) {
+export function GameViewport({ game, onComplete, onReturnHome }) {
   const canvasRef = useRef(null);
   const onCompleteRef = useRef(onComplete);
   const [hud, setHud] = useState({
@@ -39,6 +39,9 @@ export function GameViewport({ game, onComplete }) {
           <h1>{game.title}</h1>
         </div>
         <div className="hud-strip">
+          <button className="button button--ghost" onClick={onReturnHome} type="button">
+            ← Главная
+          </button>
           <div>
             <span>Счёт</span>
             <strong>{hud.score}</strong>

@@ -148,9 +148,20 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (window.location.pathname !== '/registration') {
+      window.history.replaceState(null, '', '/registration');
+    }
+  }, []);
+
+  useEffect(() => {
     const onPopState = () => {
       setRoute(readRoute());
-      if (window.location.pathname === '/') resetStandFlow();
+      const path = window.location.pathname;
+      if (path === '/') {
+        setPhase('start');
+      } else if (path === '/registration') {
+        resetStandFlow();
+      }
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -164,8 +175,8 @@ export default function App() {
     setSelectedGameId(GAME_CATALOG[0].id);
     setPendingGameId(null);
     setTelegramAutoSubmitKey('');
-    if (window.location.pathname !== '/') {
-      window.history.pushState(null, '', '/');
+    if (window.location.pathname !== '/registration') {
+      window.history.pushState(null, '', '/registration');
     }
     setTelegramAuth((current) => ({
       ...current,
@@ -553,6 +564,7 @@ export default function App() {
         window.history.replaceState(null, '', `/${pendingGameId}`);
       } else {
         setPhase('start');
+        window.history.replaceState(null, '', '/');
       }
       await refreshPublicSnapshot();
     } catch (error) {
@@ -577,9 +589,22 @@ export default function App() {
   }
 
   function handleSelectGame(gameId) {
+    if (!player) {
+      setPendingGameId(gameId);
+      setPhase('lead');
+      window.history.pushState(null, '', '/registration');
+      return;
+    }
     setSelectedGameId(gameId);
     setPhase('game');
     window.history.pushState(null, '', `/${gameId}`);
+  }
+
+  function handleReturnToStart() {
+    setPhase('start');
+    if (window.location.pathname !== '/') {
+      window.history.pushState(null, '', '/');
+    }
   }
 
   async function handleGameComplete(gameResult) {
@@ -834,11 +859,11 @@ export default function App() {
           {route === 'stand' && isStandUnlocked && phase === 'lead' ? (
             <LeadCapture busy={busy} onSubmit={handleLeadSubmit} onTelegramLogin={handleTelegramLogin} telegramAuth={telegramAuth} />
           ) : null}
-          {route === 'stand' && isStandUnlocked && phase === 'start' && player ? (
+          {route === 'stand' && isStandUnlocked && phase === 'start' ? (
             <StartScreen onSelectGame={handleSelectGame} player={player} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'game' ? (
-            <GameViewport game={selectedGame} key={`${sessionId}-${selectedGame.id}`} onComplete={handleGameComplete} />
+            <GameViewport game={selectedGame} key={`${sessionId}-${selectedGame.id}`} onComplete={handleGameComplete} onReturnHome={handleReturnToStart} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'summary' && result ? (
             <GameSummary onRestart={restartFlow} result={result} selectedGame={selectedGame} />
