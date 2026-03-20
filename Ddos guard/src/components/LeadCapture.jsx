@@ -35,6 +35,14 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function handleTelegramChange(value) {
+    if (value === '') {
+      updateField('telegram', '');
+    } else {
+      updateField('telegram', '@' + value.replace(/^@+/, ''));
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     const digits = digitsOnly(form.phone);
@@ -44,8 +52,14 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
       return;
     }
 
-    if (digits.length < 10) {
-      setError('Укажите корректный номер телефона.');
+    const trimmedPhone = form.phone.trim();
+    if (!trimmedPhone.startsWith('8') && !trimmedPhone.startsWith('+7')) {
+      setError('Номер телефона должен начинаться с 8 или +7.');
+      return;
+    }
+
+    if (digits.length !== 11) {
+      setError('Укажите корректный российский номер телефона (11 цифр).');
       return;
     }
 
@@ -109,7 +123,7 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
           <input
             value={form.telegram}
             placeholder="@username"
-            onChange={(event) => updateField('telegram', event.target.value)}
+            onChange={(event) => handleTelegramChange(event.target.value)}
           />
         </label>
 
