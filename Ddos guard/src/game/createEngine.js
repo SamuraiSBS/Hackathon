@@ -1,12 +1,17 @@
 import { getModeById } from './modes';
+import { createPhaserEngine } from './createPhaserEngine';
 
 const WIDTH = 960;
 const HEIGHT = 540;
 
 export function createGameEngine({ canvas, game, onHud, onFinish }) {
-  const context = canvas.getContext('2d');
-  const devicePixelRatio = Math.max(window.devicePixelRatio || 1, 1);
   const mode = getModeById(game.id);
+
+  if (mode.isPhaser) {
+    return createPhaserEngine({ canvas, game, onHud, onFinish });
+  }
+
+  const context = canvas.getContext('2d');
   const state = mode.createState({ width: WIDTH, height: HEIGHT, durationSeconds: game.durationSeconds });
   const input = {
     keys: new Set(),
