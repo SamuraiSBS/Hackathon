@@ -6,6 +6,7 @@ import { GameViewport } from './components/GameViewport';
 import { LeadCapture } from './components/LeadCapture';
 import { StandUnlock } from './components/StandUnlock';
 import { StartScreen } from './components/StartScreen';
+import { GameDescription } from './components/GameDescription';
 import { GAME_CATALOG, getGameById } from './data/gameCatalog';
 import {
   ApiError,
@@ -654,8 +655,12 @@ export default function App() {
     }
 
     setSelectedGameId(gameId);
+    setPhase('description');
+  }
+
+  function handleStartGame() {
     setPhase('game');
-    window.history.pushState(null, '', `/${gameId}`);
+    window.history.pushState(null, '', `/${selectedGameId}`);
   }
 
   function handleReturnToStart() {
@@ -848,6 +853,7 @@ export default function App() {
   async function restartFlow() {
     setResult(null);
     await handleSelectGame(selectedGameId, true);
+    handleStartGame();
   }
 
   function handleChangePlayer() {
@@ -929,6 +935,9 @@ export default function App() {
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'start' ? (
             <StartScreen onSelectGame={handleSelectGame} player={player} />
+          ) : null}
+          {route === 'stand' && isStandUnlocked && phase === 'description' ? (
+            <GameDescription game={selectedGame} onPlay={handleStartGame} onBack={handleReturnToStart} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'game' ? (
             <GameViewport game={selectedGame} key={`${sessionId}-${selectedGame.id}`} onComplete={handleGameComplete} onReturnHome={handleReturnToStart} />

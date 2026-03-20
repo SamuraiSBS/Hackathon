@@ -19,7 +19,7 @@ export function StartScreen({ player, onSelectGame }) {
               <li>Цель: {game.goal}</li>
             </ul>
             <button className="button" onClick={() => onSelectGame(game.id)} type="button">
-              Играть
+              Перейти к игре
             </button>
           </article>
         ))}
