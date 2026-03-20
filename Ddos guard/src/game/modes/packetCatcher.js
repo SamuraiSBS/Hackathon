@@ -61,7 +61,7 @@ export const packetCatcherMode = {
       finish({
         result: 'defeat',
         score: state.score,
-        reason: 'Фильтр принял слишком много вредоносных пакетов.',
+        reason: 'Фильтр пробит. Вредоносный трафик прошёл внутрь. Система под угрозой.',
       });
     }
   },
@@ -106,7 +106,7 @@ export const packetCatcherMode = {
     finish({
       result: 'victory',
       score: state.score + state.integrity * 90,
-      reason: 'Чистый трафик доставлен без перегруза.',
+      reason: 'Фильтрация успешна. Только чистый трафик прошёл дальше. Угрозы остановлены на входе.',
     });
   },
 };

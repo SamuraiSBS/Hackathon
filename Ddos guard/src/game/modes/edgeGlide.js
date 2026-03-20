@@ -65,7 +65,7 @@ export const edgeGlideMode = {
       finish({
         result: 'defeat',
         score: state.score,
-        reason: 'Атака продавила магистральный канал.',
+        reason: 'Перегрузка. Канал не выдержал давления. Соединение потеряно.',
       });
     }
   },
@@ -112,7 +112,7 @@ export const edgeGlideMode = {
     finish({
       result: 'victory',
       score: state.score + state.integrity * 120,
-      reason: 'Легитимный трафик дошёл до финала волны.',
+      reason: 'Трафик стабилизирован. Ты провёл данные сквозь хаос и сохранил соединение живым. Сеть работает — благодаря тебе.',
     });
   },
 };

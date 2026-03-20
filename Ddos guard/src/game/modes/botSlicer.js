@@ -72,7 +72,7 @@ export const botSlicerMode = {
       finish({
         result: 'defeat',
         score: state.score,
-        reason: 'Часть ботов прорвалась сквозь защитный контур.',
+        reason: 'Критическая ошибка. Ты задел не тех… Система потеряла доверие.',
       });
     }
   },
@@ -124,7 +124,7 @@ export const botSlicerMode = {
     finish({
       result: 'victory',
       score: state.score + state.integrity * 110,
-      reason: 'Ботнет распилен до завершения волны.',
+      reason: 'Чистая работа. Боты уничтожены, пользователи не пострадали. Идеальная фильтрация — уровень мастера.',
     });
   },
 };

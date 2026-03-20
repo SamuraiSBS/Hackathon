@@ -1,6 +1,6 @@
 export function GameSummary({ result, onRestart, onChangeGame, selectedGame }) {
   const title =
-    result.result === "victory" ? "Защита выдержала" : "Атака прошла";
+    result.result === "victory" ? "✅ Победа" : "❌ Поражение";
 
   return (
     <section className="panel panel--feature">
