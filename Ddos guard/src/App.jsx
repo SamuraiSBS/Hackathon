@@ -6,6 +6,7 @@ import { GameViewport } from './components/GameViewport';
 import { LeadCapture } from './components/LeadCapture';
 import { StandUnlock } from './components/StandUnlock';
 import { StartScreen } from './components/StartScreen';
+import { Leaderboard } from './components/Leaderboard';
 import { GameDescription } from './components/GameDescription';
 import { GAME_CATALOG, getGameById } from './data/gameCatalog';
 import {
@@ -860,6 +861,8 @@ export default function App() {
     resetStandFlow();
   }
 
+  const showLeaderboard = route === 'stand' && isStandUnlocked && phase === 'start';
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -883,7 +886,8 @@ export default function App() {
         </nav>
       </header>
 
-      <main className="layout layout--single">
+      <main className={`layout ${showLeaderboard ? '' : 'layout--single'}`}>
+        {showLeaderboard ? <Leaderboard /> : null}
         <section className="content">
           {appError ? <div className="form-error">{appError}</div> : null}
 
