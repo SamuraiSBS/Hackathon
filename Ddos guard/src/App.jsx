@@ -869,6 +869,11 @@ export default function App() {
               Выход
             </button>
           ) : null}
+          {route === 'stand' && isStandUnlocked && player ? (
+            <button className="button button--secondary topbar-action" onClick={handleChangePlayer} type="button">
+              Выйти
+            </button>
+          ) : null}
         </nav>
       </header>
 
@@ -923,7 +928,7 @@ export default function App() {
             <LeadCapture busy={busy} onSubmit={handleLeadSubmit} onTelegramLogin={handleTelegramLogin} telegramAuth={telegramAuth} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'start' ? (
-            <StartScreen onChangePlayer={handleChangePlayer} onSelectGame={handleSelectGame} player={player} />
+            <StartScreen onSelectGame={handleSelectGame} player={player} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'game' ? (
             <GameViewport game={selectedGame} key={`${sessionId}-${selectedGame.id}`} onComplete={handleGameComplete} onReturnHome={handleReturnToStart} />
