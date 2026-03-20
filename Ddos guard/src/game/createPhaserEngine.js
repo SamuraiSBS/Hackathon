@@ -31,6 +31,6 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
   });
 
   return {
-    destroy: () => phaserGame.destroy(true, false),
+    destroy: () => phaserGame.destroy(false, false),
   };
 }
