@@ -1,5 +1,6 @@
-export function GameSummary({ result, onRestart, selectedGame }) {
-  const title = result.result === 'victory' ? 'Защита выдержала' : 'Атака прошла';
+export function GameSummary({ result, onRestart, onChangeGame, selectedGame }) {
+  const title =
+    result.result === "victory" ? "Защита выдержала" : "Атака прошла";
 
   return (
     <section className="panel panel--feature">
@@ -16,7 +17,9 @@ export function GameSummary({ result, onRestart, selectedGame }) {
         </article>
         <article className="stat-card">
           <span>Итог</span>
-          <strong>{result.result === 'victory' ? 'Победа' : 'Поражение'}</strong>
+          <strong>
+            {result.result === "victory" ? "Победа" : "Поражение"}
+          </strong>
         </article>
         <article className="stat-card">
           <span>Длительность</span>
@@ -28,6 +31,15 @@ export function GameSummary({ result, onRestart, selectedGame }) {
         <button className="button" onClick={onRestart} type="button">
           Новая попытка
         </button>
+        {onChangeGame ? (
+          <button
+            className="button button--secondary"
+            onClick={onChangeGame}
+            type="button"
+          >
+            На главную
+          </button>
+        ) : null}
       </div>
     </section>
   );

@@ -28,6 +28,7 @@ import {
   submitScore,
   unblockAttempt,
 } from './lib/api';
+import { savePlayer, loadPlayer, clearPlayer } from './lib/playerSession';
 
 const phpApiEnabled = hasPhpApi();
 const standClosedMessage = 'Доступ завершён. Обратитесь к администратору.';
@@ -102,11 +103,11 @@ function getStandUnlockError(error) {
 
 export default function App() {
   const [route, setRoute] = useState(readRoute());
-  const [phase, setPhase] = useState('lead');
+  const [phase, setPhase] = useState(() => loadPlayer() ? 'start' : 'lead');
   const [busy, setBusy] = useState(false);
   const [adapter, setAdapter] = useState('local-demo');
   const [sessionId, setSessionId] = useState('');
-  const [player, setPlayer] = useState(null);
+  const [player, setPlayer] = useState(() => loadPlayer());
   const [selectedGameId, setSelectedGameId] = useState(GAME_CATALOG[0].id);
   const [pendingGameId, setPendingGameId] = useState(readGameIdFromPath);
   const [result, setResult] = useState(null);
@@ -148,8 +149,15 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (window.location.pathname !== '/registration') {
-      window.history.replaceState(null, '', '/registration');
+    const savedPlayer = loadPlayer();
+    if (savedPlayer) {
+      if (window.location.pathname === '/registration') {
+        window.history.replaceState(null, '', '/');
+      }
+    } else {
+      if (window.location.pathname !== '/registration') {
+        window.history.replaceState(null, '', '/registration');
+      }
     }
   }, []);
 
@@ -160,7 +168,11 @@ export default function App() {
       if (path === '/') {
         setPhase('start');
       } else if (path === '/registration') {
-        resetStandFlow();
+        if (loadPlayer()) {
+          resetGameOnly();
+        } else {
+          resetStandFlow();
+        }
       }
     };
     window.addEventListener('popstate', onPopState);
@@ -171,6 +183,7 @@ export default function App() {
     setPhase('lead');
     setSessionId('');
     setPlayer(null);
+    clearPlayer();
     setResult(null);
     setSelectedGameId(GAME_CATALOG[0].id);
     setPendingGameId(null);
@@ -184,6 +197,17 @@ export default function App() {
       profile: null,
       error: '',
     }));
+  }
+
+  function resetGameOnly() {
+    setSessionId('');
+    setResult(null);
+    setSelectedGameId(GAME_CATALOG[0].id);
+    setPendingGameId(null);
+    setPhase('start');
+    if (window.location.pathname !== '/') {
+      window.history.pushState(null, '', '/');
+    }
   }
 
   async function refreshPublicSnapshot() {
@@ -556,6 +580,7 @@ export default function App() {
       setAdapter(response.adapter);
       setSessionId(response.sessionId);
       setPlayer(response.player);
+      savePlayer(response.player);
       await clearTelegramState();
       if (pendingGameId) {
         setSelectedGameId(pendingGameId);
@@ -588,13 +613,46 @@ export default function App() {
     }
   }
 
-  function handleSelectGame(gameId) {
+  async function handleSelectGame(gameId) {
     if (!player) {
       setPendingGameId(gameId);
       setPhase('lead');
       window.history.pushState(null, '', '/registration');
       return;
     }
+
+    if (!sessionId) {
+      setBusy(true);
+      setAppError('');
+      try {
+        const response = await registerLead({
+          firstName: player.firstName,
+          lastName: player.lastName,
+          phone: player.phone,
+          telegram: player.telegram || '',
+          source: 'manual',
+        });
+        setAdapter(response.adapter);
+        setSessionId(response.sessionId);
+        setPlayer(response.player);
+        savePlayer(response.player);
+      } catch (error) {
+        if (isUnauthorized(error)) {
+          lockCurrentStand(standClosedMessage);
+          resetStandFlow();
+        } else {
+          setAppError(error.message || 'Не удалось создать сессию.');
+          clearPlayer();
+          setPlayer(null);
+          setPhase('lead');
+          window.history.pushState(null, '', '/registration');
+        }
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
+
     setSelectedGameId(gameId);
     setPhase('game');
     window.history.pushState(null, '', `/${gameId}`);
@@ -631,11 +689,11 @@ export default function App() {
         lockCurrentStand(standClosedMessage);
         resetStandFlow();
       } else if (error instanceof ApiError && error.status === 403) {
-        setAppError(sessionFinishedMessage);
-        resetStandFlow();
+        setAppError('Сессия завершена. Выберите новую игру.');
+        resetGameOnly();
       } else if (error instanceof ApiError && error.status === 409) {
-        setAppError('Эта попытка уже завершена. Начните новую регистрацию.');
-        resetStandFlow();
+        setAppError('Эта попытка уже завершена. Выберите новую игру.');
+        resetGameOnly();
       } else {
         setAppError(error.message || 'Не удалось отправить результат игры.');
       }
@@ -788,6 +846,10 @@ export default function App() {
   }
 
   function restartFlow() {
+    resetGameOnly();
+  }
+
+  function handleChangePlayer() {
     resetStandFlow();
   }
 
@@ -860,13 +922,13 @@ export default function App() {
             <LeadCapture busy={busy} onSubmit={handleLeadSubmit} onTelegramLogin={handleTelegramLogin} telegramAuth={telegramAuth} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'start' ? (
-            <StartScreen onSelectGame={handleSelectGame} player={player} />
+            <StartScreen onChangePlayer={handleChangePlayer} onSelectGame={handleSelectGame} player={player} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'game' ? (
             <GameViewport game={selectedGame} key={`${sessionId}-${selectedGame.id}`} onComplete={handleGameComplete} onReturnHome={handleReturnToStart} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'summary' && result ? (
-            <GameSummary onRestart={restartFlow} result={result} selectedGame={selectedGame} />
+            <GameSummary onChangeGame={handleReturnToStart} onRestart={restartFlow} result={result} selectedGame={selectedGame} />
           ) : null}
         </section>
       </main>

@@ -1,6 +1,6 @@
 import { GAME_CATALOG } from '../data/gameCatalog';
 
-export function StartScreen({ player, onSelectGame }) {
+export function StartScreen({ player, onSelectGame, onChangePlayer }) {
   return (
     <section className="panel panel--feature">
       <div className="eyebrow">Игры</div>
@@ -24,6 +24,14 @@ export function StartScreen({ player, onSelectGame }) {
           </article>
         ))}
       </div>
+
+      {player && onChangePlayer ? (
+        <div className="form-actions" style={{ marginTop: '1.5rem' }}>
+          <button className="button button--secondary" onClick={onChangePlayer} type="button">
+            Сменить игрока
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
