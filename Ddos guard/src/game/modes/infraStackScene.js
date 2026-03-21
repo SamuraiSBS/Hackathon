@@ -6,18 +6,18 @@ const HEIGHT = 540;
 const BLOCK_H = 32;
 const BLOCK_STEP = 40;
 
-// Tower Builder color palette — one color per layer
+// Blue/dark-blue palette — shades from deep navy to bright cyan
 const PALETTE = [
-  0xff6b6b, // coral
-  0xff922b, // orange
-  0xffd43b, // yellow
-  0x51cf66, // green
-  0x339af0, // blue
-  0xcc5de8, // purple
-  0xff6eb4, // pink
-  0x20c997, // teal
-  0xf06595, // hot pink
-  0x74c0fc, // sky blue
+  0x1a3a6b, // deep navy
+  0x1e4d8c, // dark blue
+  0x1565c0, // strong blue
+  0x1976d2, // medium blue
+  0x2196f3, // bright blue
+  0x42a5f5, // light blue
+  0x0d47a1, // indigo blue
+  0x0277bd, // dark cyan-blue
+  0x0288d1, // cyan-blue
+  0x29b6f6, // sky cyan
 ];
 
 export class InfraStackScene extends BasePhaserScene {
@@ -148,7 +148,7 @@ export class InfraStackScene extends BasePhaserScene {
         fontFamily: '"IBM Plex Sans", sans-serif',
         fontStyle: '900',
         fontSize: perfect ? '26px' : '20px',
-        color: perfect ? '#ffd700' : '#ffffff',
+        color: perfect ? '#00e5ff' : '#90caf9',
         stroke: '#000000',
         strokeThickness: 5,
       }
@@ -187,11 +187,11 @@ export class InfraStackScene extends BasePhaserScene {
 
     // ── Background ──────────────────────────────────────────────
     this._bgGfx.clear();
-    this._bgGfx.fillGradientStyle(0x0d1117, 0x0d1117, 0x161b22, 0x161b22, 1);
+    this._bgGfx.fillGradientStyle(0x020c1f, 0x020c1f, 0x0a1929, 0x0a1929, 1);
     this._bgGfx.fillRect(0, 0, WIDTH, HEIGHT);
 
     // Dark grid
-    this._bgGfx.lineStyle(1, 0x30363d, 0.8);
+    this._bgGfx.lineStyle(1, 0x0d2845, 0.9);
     const gridOffY = ((camY * 0.25) % 60 + 60) % 60;
     for (let y = gridOffY - 60; y < HEIGHT + 60; y += 60) {
       this._bgGfx.lineBetween(0, y, WIDTH, y);
@@ -201,14 +201,14 @@ export class InfraStackScene extends BasePhaserScene {
     }
 
     // Subtle column guide (shows where tower sits)
-    this._bgGfx.fillStyle(0xffffff, 0.025);
+    this._bgGfx.fillStyle(0x1565c0, 0.07);
     this._bgGfx.fillRect(topBlock.x, 0, topBlock.width, HEIGHT);
 
     // ── Guide lines from top block edges ────────────────────────
     this._guideGfx.clear();
     const topDrawY = topBlock.y - camY;
     if (topDrawY < HEIGHT) {
-      this._guideGfx.lineStyle(1, 0xffffff, 0.15);
+      this._guideGfx.lineStyle(1, 0x42a5f5, 0.3);
       this._guideGfx.lineBetween(topBlock.x, 0, topBlock.x, topDrawY);
       this._guideGfx.lineBetween(topBlock.x + topBlock.width, 0, topBlock.x + topBlock.width, topDrawY);
     }
@@ -219,7 +219,7 @@ export class InfraStackScene extends BasePhaserScene {
       const drawY = block.y - camY;
       if (drawY > HEIGHT + 40 || drawY + BLOCK_H < -10) continue;
 
-      const color = block.color ?? 0x339af0;
+      const color = block.color ?? 0x1976d2;
 
       // Drop shadow
       this._blockGfx.fillStyle(0x000000, 0.45);
@@ -237,9 +237,9 @@ export class InfraStackScene extends BasePhaserScene {
       this._blockGfx.fillStyle(0x000000, 0.18);
       this._blockGfx.fillRoundedRect(block.x, drawY + BLOCK_H - 7, block.width, 7, { tl: 0, tr: 0, bl: 6, br: 6 });
 
-      // Perfect golden ring
+      // Perfect cyan ring
       if (block.perfect) {
-        this._blockGfx.lineStyle(2, 0xffd700, 1);
+        this._blockGfx.lineStyle(2, 0x00e5ff, 1);
         this._blockGfx.strokeRoundedRect(block.x - 1, drawY - 1, block.width + 2, BLOCK_H + 2, 7);
       }
     }
@@ -253,12 +253,12 @@ export class InfraStackScene extends BasePhaserScene {
     this._activeGfx.fillStyle(0x000000, 0.3);
     this._activeGfx.fillRoundedRect(this._active.x + 4, activeDrawY + 6, this._active.width, BLOCK_H, 6);
 
-    // Body
-    this._activeGfx.fillStyle(0xffffff, pulse);
+    // Body — bright cyan-blue pulsing
+    this._activeGfx.fillStyle(0x29b6f6, pulse);
     this._activeGfx.fillRoundedRect(this._active.x, activeDrawY, this._active.width, BLOCK_H, 6);
 
-    // Blue tint gloss
-    this._activeGfx.fillStyle(0x4d96ff, 0.35);
+    // Lighter cyan gloss
+    this._activeGfx.fillStyle(0x80d8ff, 0.4);
     this._activeGfx.fillRoundedRect(
       this._active.x + 6,
       activeDrawY + 5,
@@ -267,8 +267,8 @@ export class InfraStackScene extends BasePhaserScene {
       4
     );
 
-    // Outline
-    this._activeGfx.lineStyle(2, 0x4d96ff, 1);
+    // Outline — electric cyan
+    this._activeGfx.lineStyle(2, 0x00e5ff, 1);
     this._activeGfx.strokeRoundedRect(this._active.x, activeDrawY, this._active.width, BLOCK_H, 6);
 
     // ── HUD ───────────────────────────────────────────────────────
