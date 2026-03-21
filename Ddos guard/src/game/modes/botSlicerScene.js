@@ -31,8 +31,8 @@ export class BotSlicerScene extends BasePhaserScene {
     const bgTex = this.textures.createCanvas('bot-slicer-bg', W, H);
     const bgCtx = bgTex.getContext();
     const grad = bgCtx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, '#f7fbff');
-    grad.addColorStop(1, '#dcecff');
+    grad.addColorStop(0, '#0a1628');
+    grad.addColorStop(1, '#0d2f6b');
     bgCtx.fillStyle = grad;
     bgCtx.fillRect(0, 0, W, H);
     bgTex.refresh();
@@ -40,7 +40,7 @@ export class BotSlicerScene extends BasePhaserScene {
 
     // --- Grid backdrop ---
     const gridGfx = this.add.graphics();
-    gridGfx.lineStyle(1, 0x11151d, 0.08);
+    gridGfx.lineStyle(1, 0x4488cc, 0.15);
     for (let y = 40; y < H; y += 46) {
       gridGfx.beginPath();
       gridGfx.moveTo(0, y);
@@ -56,7 +56,7 @@ export class BotSlicerScene extends BasePhaserScene {
       fontFamily: '"IBM Plex Sans", sans-serif',
       fontSize: '18px',
       fontStyle: '600',
-      color: '#11151d',
+      color: '#a8d4ff',
     });
 
     // --- Input ---
@@ -181,7 +181,7 @@ export class BotSlicerScene extends BasePhaserScene {
     for (let i = 0; i < len; i++) {
       const alpha = ((i + 1) / len) * 0.35;
       const r = 6 * ((i + 1) / len);
-      this.trailGfx.fillStyle(0x0077ff, alpha);
+      this.trailGfx.fillStyle(0x00d4ff, alpha);
       this.trailGfx.fillCircle(this.trail[i].x, this.trail[i].y, r);
     }
 
@@ -202,11 +202,11 @@ export class BotSlicerScene extends BasePhaserScene {
     const radius = rand(22, 34);
 
     const gfx = this.add.graphics();
-    gfx.fillStyle(type === 'bot' ? 0x11151d : 0x0077ff, 1);
+    gfx.fillStyle(type === 'bot' ? 0x061430 : 0x38b6ff, 1);
     gfx.fillCircle(0, 0, radius);
 
     const label = this.add
-      .text(0, 5, type === 'bot' ? 'BOT' : 'OK', {
+      .text(0, 0, type === 'bot' ? 'BOT' : 'OK', {
         fontFamily: '"Space Grotesk", sans-serif',
         fontSize: '14px',
         fontStyle: '700',
