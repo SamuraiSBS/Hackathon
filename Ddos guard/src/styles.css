@@ -536,6 +536,23 @@ input:focus {
   touch-action: none;
 }
 
+/* Phaser game host — Phaser creates its own <canvas> inside this div */
+.phaser-host {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+/* Force Phaser's canvas to fill the host regardless of inline styles */
+.phaser-host canvas {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
 .objective-note {
   margin-top: 16px;
   padding: 14px 16px;

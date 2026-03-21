@@ -4,16 +4,28 @@ import { getModeById } from './modes';
 const WIDTH = 960;
 const HEIGHT = 540;
 
-export function createPhaserEngine({ container, game, onHud, onFinish }) {
+export function createPhaserEngine({ parent, game, onHud, onFinish }) {
   const mode = getModeById(game.id);
   const SceneClass = mode.PhaserScene;
 
+  // Replace the React-managed <canvas> with a host <div>.
+  // Phaser then creates its own <canvas> inside that div.
+  // This prevents Phaser's ScaleManager from fighting CSS layout.
+  const shellDiv = canvas.parentElement;
+  const host = document.createElement('div');
+  host.className = 'phaser-host';
+  shellDiv.replaceChild(host, canvas);
+
   const phaserGame = new Phaser.Game({
-    type: Phaser.AUTO,
-    parent: container,
+    type: Phaser.CANVAS,
+    parent: host,
     width: WIDTH,
     height: HEIGHT,
-    backgroundColor: '#f8fbff',
+    backgroundColor: '#0a0a1a',
+    physics: {
+      default: 'arcade',
+      arcade: { gravity: { y: 0 }, debug: false },
+    },
     scene: SceneClass,
     callbacks: {
       preBoot: (g) => {
@@ -23,8 +35,8 @@ export function createPhaserEngine({ container, game, onHud, onFinish }) {
       },
     },
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
+      mode: Phaser.Scale.NONE,
+      expandParent: false,
     },
     audio: {
       noAudio: true,
@@ -32,6 +44,6 @@ export function createPhaserEngine({ container, game, onHud, onFinish }) {
   });
 
   return {
-    destroy: () => phaserGame.destroy(true, false),
+    destroy: () => phaserGame.destroy(false, false),
   };
 }

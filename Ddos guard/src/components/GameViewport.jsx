@@ -5,6 +5,7 @@ import { formatTimer } from '../lib/format';
 
 export function GameViewport({ game, onComplete, onReturnHome }) {
   const containerRef = useRef(null);
+  const mode = getModeById(game.id);
   const onCompleteRef = useRef(onComplete);
   const isPhaser = getModeById(game.id).isPhaser ?? false;
   const [hud, setHud] = useState({
@@ -24,7 +25,7 @@ export function GameViewport({ game, onComplete, onReturnHome }) {
     }
 
     const engine = createGameEngine({
-      container: containerRef.current,
+      canvas: containerRef.current,
       game,
       onHud: setHud,
       onFinish: (result) => onCompleteRef.current(result),
@@ -63,8 +64,12 @@ export function GameViewport({ game, onComplete, onReturnHome }) {
         {game.goal} Управление: {game.controls}.
       </p>
 
-      <div className="canvas-shell" ref={containerRef}>
-        {!isPhaser && <canvas aria-label={game.title} />}
+      <div className="canvas-shell">
+        {mode.isPhaser ? (
+          <div aria-label={game.title} ref={containerRef} />
+        ) : (
+          <canvas aria-label={game.title} ref={containerRef} />
+        )}
       </div>
 
       <div className="objective-note">{hud.objective}</div>
