@@ -7,6 +7,7 @@ export function GameViewport({ game, onComplete, onReturnHome }) {
   const containerRef = useRef(null);
   const mode = getModeById(game.id);
   const onCompleteRef = useRef(onComplete);
+  const isPhaser = getModeById(game.id).isPhaser ?? false;
   const [hud, setHud] = useState({
     score: 0,
     integrity: 3,
