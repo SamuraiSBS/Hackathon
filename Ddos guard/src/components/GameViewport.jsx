@@ -61,16 +61,6 @@ export function GameViewport({ game, onComplete }) {
     return () => engine.destroy();
   }, [game, started]);
 
-  if (!started && countdown > 0) {
-    return (
-      <section className="panel panel--feature panel--game">
-        <div className="countdown-container">
-          <span className="pixel-timer pixel-timer--countdown">{countdown}</span>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section className="panel panel--feature panel--game">
       <div className="game-stage__header">
@@ -91,10 +81,17 @@ export function GameViewport({ game, onComplete }) {
       </div>
 
       <div className="canvas-shell">
-        {isPhaser ? (
-          <div aria-label={game.title} ref={containerRef} />
-        ) : (
-          <canvas aria-label={game.title} ref={containerRef} />
+        {started ? (
+          isPhaser ? (
+            <div aria-label={game.title} ref={containerRef} />
+          ) : (
+            <canvas aria-label={game.title} ref={containerRef} />
+          )
+        ) : null}
+        {!started && countdown > 0 && (
+          <div className="game-overlay game-overlay--countdown">
+            <span className="pixel-timer pixel-timer--countdown">{countdown}</span>
+          </div>
         )}
         <div className="game-overlay game-overlay--timer">
           <span className="pixel-timer">{formatTimer(hud.timeLeft)}</span>
