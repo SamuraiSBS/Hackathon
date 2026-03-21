@@ -14,6 +14,10 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
     width: WIDTH,
     height: HEIGHT,
     backgroundColor: '#0a0a1a',
+    physics: {
+      default: 'arcade',
+      arcade: { gravity: { y: 0 }, debug: false },
+    },
     scene: SceneClass,
     callbacks: {
       preBoot: (g) => {
@@ -31,6 +35,6 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
   });
 
   return {
-    destroy: () => phaserGame.destroy(true, false),
+    destroy: () => phaserGame.destroy(false, false),
   };
 }
