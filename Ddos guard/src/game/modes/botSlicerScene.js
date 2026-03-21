@@ -394,8 +394,8 @@ export class BotSlicerScene extends BasePhaserScene {
     this.targets.push({
       x,
       y,
-      vx: rand(-120, 120),
-      vy: rand(-520, -400),
+      vx: rand(-80, 80),
+      vy: rand(-950, -650),
       va: rand(-2.2, 2.2),
       angle: 0,
       radius,
