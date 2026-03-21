@@ -206,7 +206,11 @@ class ShieldHopScene extends BasePhaserScene {
 
   _spawnInitialPlatforms() {
     let currentY = HEIGHT - 80;
-    for (let i = 0; i < PLATFORM_COUNT; i++) {
+    // Гарантированная платформа прямо под стартовой позицией игрока
+    const startW = randomBetween(PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH);
+    this._createPlatform(WIDTH / 2, currentY, startW, false);
+    currentY -= randomBetween(PLATFORM_GAP_MIN, PLATFORM_GAP_MAX);
+    for (let i = 1; i < PLATFORM_COUNT; i++) {
       const w = randomBetween(PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH);
       const x = randomBetween(90, WIDTH - 220);
       const isBoost = Math.random() < BOOST_CHANCE;
