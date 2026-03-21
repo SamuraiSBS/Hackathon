@@ -66,7 +66,7 @@ export function GameViewport({ game, onComplete, onReturnHome }) {
 
       <div className="canvas-shell">
         {mode.isPhaser ? (
-          <div aria-label={game.title} ref={containerRef} />
+          <div className="phaser-host" aria-label={game.title} ref={containerRef} />
         ) : (
           <canvas aria-label={game.title} ref={containerRef} />
         )}
