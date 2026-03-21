@@ -243,33 +243,46 @@ class ShieldHopScene extends BasePhaserScene {
 
   _recyclePlatforms() {
     const cameraBottom = this.cameras.main.scrollY + HEIGHT;
+    const cameraTop = this.cameras.main.scrollY;
 
-    this.platformGroup.getChildren().forEach((platform) => {
-      if (platform.y > cameraBottom + 50) {
-        const newWidth = randomBetween(PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH);
-        const newX = randomBetween(80, WIDTH - 210) + newWidth / 2;
-        const newY = this.cameras.main.scrollY - randomBetween(60, 160);
-        const isBoost = Math.random() < BOOST_CHANCE;
+    const toRecycle = this.platformGroup.getChildren().filter(
+      (p) => p.y > cameraBottom + 50
+    );
 
-        platform.setPosition(newX, newY);
-        platform.setDisplaySize(newWidth, PLATFORM_HEIGHT);
-        platform.setTexture(isBoost ? 'platform-boost' : 'platform-normal');
-        platform.setData('boost', isBoost);
-        platform.setAlpha(1);
-        platform.refreshBody();
+    if (toRecycle.length === 0) return;
 
-        // Remove old tweens and add new pulse for boost
-        this.tweens.killTweensOf(platform);
-        if (isBoost) {
-          this.tweens.add({
-            targets: platform,
-            alpha: { from: 1, to: 0.7 },
-            duration: 800,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-          });
-        }
+    // Find the topmost platform among non-recycled ones
+    let topY = cameraTop - 60;
+    this.platformGroup.getChildren().forEach((p) => {
+      if (!toRecycle.includes(p) && p.y < topY) {
+        topY = p.y;
+      }
+    });
+
+    // Place each recycled platform above the previous with a proper gap
+    toRecycle.forEach((platform) => {
+      const newWidth = randomBetween(PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH);
+      const newX = randomBetween(80, WIDTH - 210) + newWidth / 2;
+      topY -= randomBetween(PLATFORM_GAP_MIN, PLATFORM_GAP_MAX);
+      const isBoost = Math.random() < BOOST_CHANCE;
+
+      platform.setPosition(newX, topY);
+      platform.setDisplaySize(newWidth, PLATFORM_HEIGHT);
+      platform.setTexture(isBoost ? 'platform-boost' : 'platform-normal');
+      platform.setData('boost', isBoost);
+      platform.setAlpha(1);
+      platform.refreshBody();
+
+      this.tweens.killTweensOf(platform);
+      if (isBoost) {
+        this.tweens.add({
+          targets: platform,
+          alpha: { from: 1, to: 0.7 },
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
       }
     });
   }
