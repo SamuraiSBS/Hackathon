@@ -5,19 +5,24 @@ const initialForm = {
   firstName: '',
   lastName: '',
   phone: '',
-  telegram: '',
-  source: 'manual',
   consent: false,
 };
 
 function TelegramLogo() {
   return (
-    <svg aria-hidden="true" className="telegram-logo" viewBox="0 0 24 24">
+    <svg aria-hidden="true" className="telegram-logo" viewBox="0 0 64 64">
       <path
-        d="M21.9 4.6c.2-.9-.4-1.3-1.2-1L2.5 10.7c-.8.3-.8.8-.2 1l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .8-.2 1-.5l2.7-2.7 5.6 4.2c1 .6 1.7.3 2-.9l3-14.9Z"
-        fill="currentColor"
+        d="M55.7 9.4 8.9 27.5c-3.2 1.3-3.1 3.1-.6 3.9l12 3.7 4.5 14.1c.6 1.9 1.2 2.6 2.4 2.6 1 0 1.6-.5 2.5-1.4l6.9-6.7 14.4 10.5c2.6 1.4 4.5.7 5.2-2.4l8.1-39.1c1-4-1.5-5.8-4.2-4.7Z"
+        fill="#dbe8f3"
       />
-      <path d="m9.2 18.8.4-5.6 10.1-9.2-12.2 7.7-4.8-1.5 6.9 2.2-.4 6.4Z" fill="rgba(255,255,255,0.9)" />
+      <path
+        d="m24.1 49.3 2.1-15.8 28.8-19.5-34.3 15.4-12-3.7 46.8-18.2c2.2-.8 4.3.5 3.5 4.5l-7.9 39c-.5 2.3-1.8 2.9-4 1.7L33.6 42.4l-7 7c-.8.8-1.4 1.1-2.5-.1Z"
+        fill="#b4cce0"
+      />
+      <path
+        d="m27.7 35.4 24.6-17.1-18.8 20.2-.7 9.4 3.3-6.8 14.1 10.3c1.9 1.3 3.2.6 3.7-1.7l8-39c.8-3.8-1.2-5.2-3.5-4.4L8.8 25c-2.4.9-2.3 2.6-.4 3.3l12.2 3.8 28.1-18-21 22.4Z"
+        fill="#f7fbff"
+      />
     </svg>
   );
 }
@@ -35,14 +40,6 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function handleTelegramChange(value) {
-    if (value === '') {
-      updateField('telegram', '');
-    } else {
-      updateField('telegram', '@' + value.replace(/^@+/, ''));
-    }
-  }
-
   async function handleSubmit(event) {
     event.preventDefault();
     const digits = digitsOnly(form.phone);
@@ -52,14 +49,8 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
       return;
     }
 
-    const trimmedPhone = form.phone.trim();
-    if (!trimmedPhone.startsWith('8') && !trimmedPhone.startsWith('+7')) {
-      setError('Номер телефона должен начинаться с 8 или +7.');
-      return;
-    }
-
-    if (digits.length !== 11) {
-      setError('Укажите корректный российский номер телефона (11 цифр).');
+    if (digits.length < 10) {
+      setError('Укажите корректный номер телефона.');
       return;
     }
 
@@ -73,8 +64,7 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
       firstName: form.firstName,
       lastName: form.lastName,
       phone: formatPhone(form.phone),
-      telegram: form.telegram,
-      source: form.source,
+      source: 'manual',
     });
   }
 
@@ -92,7 +82,7 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
           onClick={onTelegramLogin}
         >
           <TelegramLogo />
-          <span>Продолжить через Telegram</span>
+          <span>Зарегистрироваться через Telegram</span>
         </button>
         {!telegramConfigured ? <div className="telegram-login-hint">Telegram временно недоступен.</div> : null}
         {telegramAuth?.error ? <div className="form-error">{telegramAuth.error}</div> : null}
@@ -115,15 +105,6 @@ export function LeadCapture({ onSubmit, busy, telegramAuth, onTelegramLogin }) {
             value={form.phone}
             placeholder="+7 (999) 000-00-00"
             onChange={(event) => updateField('phone', event.target.value)}
-          />
-        </label>
-
-        <label className="field-span-2">
-          <span>Telegram</span>
-          <input
-            value={form.telegram}
-            placeholder="@username"
-            onChange={(event) => handleTelegramChange(event.target.value)}
           />
         </label>
 

@@ -25,7 +25,16 @@ $attempt = $state['attempts'][$attemptIndex];
 respond([
     'sessionId' => $attempt['sessionId'] ?? '',
     'playerName' => player_name($attempt),
+    'assignedGameId' => attempt_assigned_game_id($attempt),
     'status' => $attempt['status'] ?? 'registered',
     'blocked' => ($attempt['status'] ?? '') === 'blocked',
     'blockedAt' => $attempt['blockedAt'] ?? null,
+    'playedGameIds' => played_game_ids($attempt),
+    'gameResults' => attempt_game_results($attempt),
+    'wins' => attempt_wins_count($attempt),
+    'losses' => attempt_losses_count($attempt),
+    'totalScore' => attempt_total_score($attempt),
+    'gamesCompleted' => games_played_count($attempt),
+    'gamesAvailable' => count(available_game_ids()),
+    'allGamesCompleted' => all_games_completed($attempt),
 ]);

@@ -1,6 +1,8 @@
+import { GAME_CATALOG } from '../data/gameCatalog';
 import { displayName, formatPhone } from './format';
 
 const STORAGE_KEY = 'ddos-guard-expo-arcade-demo-v1';
+const AVAILABLE_GAME_IDS = GAME_CATALOG.map((game) => game.id);
 
 function createSeedAttempts() {
   return [
@@ -86,7 +88,7 @@ function sourceFromPayload(payload) {
     return payload.source;
   }
 
-  return payload.telegram ? 'telegram' : 'manual';
+  return payload.telegramId || payload.telegramPhotoUrl ? 'telegram' : 'manual';
 }
 
 function readState() {
@@ -115,9 +117,56 @@ function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function legacyPlayFromAttempt(attempt) {
+  if (!attempt.gameId) {
+    return null;
+  }
+
+  return {
+    gameId: attempt.gameId,
+    gameTitle: attempt.gameTitle ?? '',
+    result: attempt.result ?? 'defeat',
+    reason: attempt.reason ?? '',
+    score: attempt.score ?? 0,
+    durationSeconds: attempt.durationSeconds ?? 0,
+    finishedAt: attempt.finishedAt ?? '',
+  };
+}
+
+function attemptPlays(attempt) {
+  if (Array.isArray(attempt.plays) && attempt.plays.length > 0) {
+    return attempt.plays.filter((play) => play?.gameId);
+  }
+
+  const legacyPlay = legacyPlayFromAttempt(attempt);
+  return legacyPlay ? [legacyPlay] : [];
+}
+
+function latestAttemptPlay(attempt) {
+  return [...attemptPlays(attempt)].sort((left, right) => new Date(right.finishedAt || 0) - new Date(left.finishedAt || 0))[0] ?? null;
+}
+
+function playedGameIds(attempt) {
+  return [...new Set(attemptPlays(attempt).map((play) => play.gameId))];
+}
+
+function allGamesCompleted(attempt) {
+  return playedGameIds(attempt).length >= AVAILABLE_GAME_IDS.length;
+}
+
 function leaderboardFromAttempts(attempts) {
   return attempts
-    .filter((attempt) => attempt.status === 'completed')
+    .flatMap((attempt) =>
+      attemptPlays(attempt).map((play) => ({
+        sessionId: `${attempt.sessionId}:${play.gameId}`,
+        playerName: displayName(attempt),
+        score: play.score,
+        result: play.result,
+        gameId: play.gameId,
+        gameTitle: play.gameTitle,
+        finishedAt: play.finishedAt,
+      }))
+    )
     .sort((left, right) => {
       if (right.score !== left.score) {
         return right.score - left.score;
@@ -129,7 +178,7 @@ function leaderboardFromAttempts(attempts) {
     .map((attempt, index) => ({
       rank: index + 1,
       sessionId: attempt.sessionId,
-      playerName: displayName(attempt),
+      playerName: attempt.playerName,
       score: attempt.score,
       result: attempt.result,
       gameId: attempt.gameId,
@@ -139,7 +188,7 @@ function leaderboardFromAttempts(attempts) {
 }
 
 function summaryFromAttempts(attempts) {
-  const completed = attempts.filter((attempt) => attempt.status === 'completed');
+  const completed = attempts.flatMap((attempt) => attemptPlays(attempt));
   const victories = completed.filter((attempt) => attempt.result === 'victory').length;
   const sourceStats = attempts.reduce(
     (accumulator, attempt) => {
@@ -165,33 +214,41 @@ function snapshotFromState(state) {
   return {
     leaderboard: leaderboardFromAttempts(state.attempts),
     summary: summaryFromAttempts(state.attempts),
-    recentLeads: attempts.slice(0, 12).map((attempt) => ({
-      sessionId: attempt.sessionId,
-      playerName: displayName(attempt),
-      phone: formatPhone(attempt.phone),
-      telegram: attempt.telegram,
-      source: attempt.source,
-      status: attempt.status,
-      result: attempt.result,
-      gameTitle: attempt.gameTitle,
-      score: attempt.score ?? 0,
-      createdAt: attempt.createdAt,
-      finishedAt: attempt.finishedAt,
-    })),
+    recentLeads: attempts.slice(0, 12).map((attempt) => {
+      const latestPlay = latestAttemptPlay(attempt);
+
+      return {
+        sessionId: attempt.sessionId,
+        playerName: displayName(attempt),
+        phone: formatPhone(attempt.phone),
+        telegram: attempt.source === 'telegram' ? attempt.telegram : '',
+        source: attempt.source,
+        status: attempt.status,
+        result: latestPlay?.result ?? null,
+        gameTitle: latestPlay?.gameTitle ?? '',
+        score: latestPlay?.score ?? 0,
+        createdAt: attempt.createdAt,
+        finishedAt: latestPlay?.finishedAt ?? null,
+        playedGameIds: playedGameIds(attempt),
+        gamesCompleted: playedGameIds(attempt).length,
+        gamesAvailable: AVAILABLE_GAME_IDS.length,
+      };
+    }),
   };
 }
 
 export async function registerDemoLead(payload) {
   const state = readState();
   const sessionId = createId('lead');
+  const source = sourceFromPayload(payload);
 
   const attempt = {
     sessionId,
     firstName: payload.firstName.trim(),
     lastName: payload.lastName.trim(),
     phone: formatPhone(payload.phone),
-    telegram: payload.telegram?.trim() ?? '',
-    source: sourceFromPayload(payload),
+    telegram: source === 'telegram' ? payload.telegram?.trim() ?? '' : '',
+    source,
     consent: true,
     createdAt: new Date().toISOString(),
     status: 'registered',
@@ -207,6 +264,11 @@ export async function registerDemoLead(payload) {
       lastName: attempt.lastName,
       phone: attempt.phone,
       telegram: attempt.telegram,
+      source: attempt.source,
+      telegramId: payload.telegramId?.trim() ?? '',
+      telegramPhotoUrl: payload.telegramPhotoUrl?.trim() ?? '',
+      playedGameIds: [],
+      gamesAvailable: AVAILABLE_GAME_IDS.length,
     },
   };
 }
@@ -219,12 +281,25 @@ export async function submitDemoResult(payload) {
     throw new Error('Попытка не найдена в демо-хранилище.');
   }
 
-  if (attempt.status === 'completed') {
-    throw new Error('Попытка уже завершена и не может быть отправлена повторно.');
+  if (playedGameIds(attempt).includes(payload.gameId)) {
+    throw new Error('Для этой игры попытка уже использована.');
   }
 
-  attempt.status = 'completed';
-  attempt.finishedAt = new Date().toISOString();
+  const finishedAt = new Date().toISOString();
+  attempt.plays = [
+    ...attemptPlays(attempt),
+    {
+      gameId: payload.gameId,
+      gameTitle: payload.gameTitle,
+      score: Math.round(payload.score),
+      result: payload.result,
+      durationSeconds: payload.durationSeconds,
+      reason: payload.reason,
+      finishedAt,
+    },
+  ];
+  attempt.status = allGamesCompleted(attempt) ? 'completed' : 'in_progress';
+  attempt.finishedAt = finishedAt;
   attempt.gameId = payload.gameId;
   attempt.gameTitle = payload.gameTitle;
   attempt.score = Math.round(payload.score);
@@ -234,7 +309,15 @@ export async function submitDemoResult(payload) {
 
   writeState(state);
 
-  return { attempt };
+  return {
+    attempt: {
+      ...attempt,
+      playedGameIds: playedGameIds(attempt),
+      gamesCompleted: playedGameIds(attempt).length,
+      gamesAvailable: AVAILABLE_GAME_IDS.length,
+      allGamesCompleted: allGamesCompleted(attempt),
+    },
+  };
 }
 
 export async function getDemoSnapshot() {

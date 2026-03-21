@@ -76,6 +76,18 @@ export async function getAdminSnapshot() {
   return { ...(await request('/admin.php', { credentials: 'include' })), adapter: 'php-api' };
 }
 
+export async function setActiveGame(gameId) {
+  if (!hasPhpApi()) {
+    return { activeGameId: gameId };
+  }
+
+  return request('/stand-game.php', {
+    method: 'POST',
+    body: { gameId },
+    credentials: 'include',
+  });
+}
+
 export async function blockAttempt(sessionId) {
   if (!hasPhpApi()) {
     throw new ApiError('Действие временно недоступно.', 503);
@@ -106,6 +118,11 @@ export async function getAttemptStatus(sessionId) {
       sessionId,
       status: 'local-demo',
       blocked: false,
+      assignedGameId: '',
+      playedGameIds: [],
+      gamesCompleted: 0,
+      gamesAvailable: 0,
+      allGamesCompleted: false,
       adapter: 'local-demo',
     };
   }
@@ -158,6 +175,7 @@ export async function checkStandSession() {
       tokenConfigured: false,
       authenticatedAt: null,
       deactivatedAt: null,
+      activeGameId: '',
       adapter: 'local-demo',
       requiresPhpApi: false,
     };
@@ -215,12 +233,23 @@ export async function clearTelegramAuthState() {
   });
 }
 
-export function getTelegramLoginUrl() {
+export async function beginTelegramLogin() {
   if (!hasPhpApi()) {
     return '';
   }
 
-  return `${API_BASE_URL}/telegram-login.php`;
+  const loginUrl = new URL(`${API_BASE_URL}/telegram-login.php`);
+  loginUrl.searchParams.set('format', 'json');
+
+  if (typeof window !== 'undefined' && window.location?.href) {
+    loginUrl.searchParams.set('return_to', window.location.href);
+  }
+
+  const response = await request(`${loginUrl.pathname}?${loginUrl.searchParams.toString()}`, {
+    credentials: 'include',
+  });
+
+  return response?.authUrl || '';
 }
 
 export async function resetLocalDemo() {

@@ -9,4 +9,5 @@ respond([
     'tokenConfigured' => stand_token_configured(),
     'authenticatedAt' => stand_authenticated_at(),
     'deactivatedAt' => stand_deactivated_at(),
+    'activeGameId' => active_game_id(),
 ]);

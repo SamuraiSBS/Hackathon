@@ -115,9 +115,90 @@ function clear_telegram_auth_flow(): void
     );
 }
 
+function telegram_return_url(): string
+{
+    $returnUrl = trim((string) ($_SESSION['telegram_return_url'] ?? ''));
+
+    return telegram_valid_return_url($returnUrl) ?? '';
+}
+
+function store_telegram_return_url(?string $url): void
+{
+    $validReturnUrl = $url === null ? null : telegram_valid_return_url($url);
+
+    if ($validReturnUrl === null) {
+        clear_telegram_return_url();
+        return;
+    }
+
+    $_SESSION['telegram_return_url'] = $validReturnUrl;
+}
+
+function clear_telegram_return_url(): void
+{
+    unset($_SESSION['telegram_return_url']);
+}
+
+function telegram_requested_return_url(array $query): ?string
+{
+    $candidates = [
+        trim((string) ($query['return_to'] ?? '')),
+        trim((string) ($_SERVER['HTTP_REFERER'] ?? '')),
+    ];
+
+    foreach ($candidates as $candidate) {
+        $validReturnUrl = telegram_valid_return_url($candidate);
+        if ($validReturnUrl !== null) {
+            return $validReturnUrl;
+        }
+    }
+
+    return null;
+}
+
+function telegram_valid_return_url(string $url): ?string
+{
+    if ($url === '') {
+        return null;
+    }
+
+    $validatedUrl = filter_var($url, FILTER_VALIDATE_URL);
+    if (!is_string($validatedUrl) || $validatedUrl === '') {
+        return null;
+    }
+
+    $parts = parse_url($validatedUrl);
+    if (!is_array($parts)) {
+        return null;
+    }
+
+    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+    $host = (string) ($parts['host'] ?? '');
+
+    if (($scheme !== 'http' && $scheme !== 'https') || $host === '') {
+        return null;
+    }
+
+    $origin = sprintf('%s://%s%s', $scheme, $host, isset($parts['port']) ? ':' . $parts['port'] : '');
+
+    foreach (configured_allowed_origins() as $allowedOrigin) {
+        if (hash_equals($allowedOrigin, $origin)) {
+            return $validatedUrl;
+        }
+    }
+
+    return null;
+}
+
 function telegram_redirect_to_app(): void
 {
-    $target = telegram_public_app_url();
+    $target = telegram_return_url();
+
+    if ($target === '') {
+        $target = telegram_public_app_url();
+    }
+
+    clear_telegram_return_url();
 
     if ($target === '') {
         respond(['error' => 'Public app URL is not configured.'], 500);
@@ -127,22 +208,13 @@ function telegram_redirect_to_app(): void
     exit;
 }
 
-function telegram_begin_login(): void
+function telegram_json_mode_requested(): bool
 {
-    if (!stand_is_authenticated()) {
-        set_telegram_error('Стендовая сессия истекла. Разблокируйте стенд повторно.');
-        telegram_redirect_to_app();
-    }
+    return strtolower(trim((string) ($_GET['format'] ?? ''))) === 'json';
+}
 
-    if (!telegram_login_configured()) {
-        set_telegram_error('Telegram Login не настроен на backend.');
-        telegram_redirect_to_app();
-    }
-
-    clear_telegram_pending_profile();
-    clear_telegram_error();
-    clear_telegram_auth_flow();
-
+function telegram_build_auth_url(): string
+{
     $state = telegram_random_string(24);
     $verifier = telegram_random_string(32);
 
@@ -165,7 +237,50 @@ function telegram_begin_login(): void
         PHP_QUERY_RFC3986
     );
 
-    header(sprintf('Location: %s?%s', TELEGRAM_OIDC_AUTH_URL, $query), true, 302);
+    return sprintf('%s?%s', TELEGRAM_OIDC_AUTH_URL, $query);
+}
+
+function telegram_begin_login(): void
+{
+    store_telegram_return_url(telegram_requested_return_url($_GET));
+
+    if (!stand_is_authenticated()) {
+        $message = 'Стендовая сессия истекла. Разблокируйте стенд повторно.';
+        set_telegram_error($message);
+        if (telegram_json_mode_requested()) {
+            respond(['error' => $message], 401);
+        }
+        telegram_redirect_to_app();
+    }
+
+    if (!telegram_login_configured()) {
+        $message = 'Telegram Login не настроен на backend.';
+        set_telegram_error($message);
+        if (telegram_json_mode_requested()) {
+            respond(['error' => $message], 503);
+        }
+        telegram_redirect_to_app();
+    }
+
+    clear_telegram_pending_profile();
+    clear_telegram_error();
+    clear_telegram_auth_flow();
+
+    $authUrl = telegram_build_auth_url();
+    $authorizationError = telegram_authorization_error_message($authUrl);
+    if ($authorizationError !== null) {
+        set_telegram_error($authorizationError);
+        if (telegram_json_mode_requested()) {
+            respond(['error' => $authorizationError], 422);
+        }
+        telegram_redirect_to_app();
+    }
+
+    if (telegram_json_mode_requested()) {
+        respond(['authUrl' => $authUrl]);
+    }
+
+    header(sprintf('Location: %s', $authUrl), true, 302);
     exit;
 }
 
@@ -552,6 +667,31 @@ function telegram_http_request(string $url, string $method, array $headers = [],
         'status' => isset($matches[1]) ? (int) $matches[1] : 0,
         'body' => $rawBody,
     ];
+}
+
+function telegram_authorization_error_message(string $authUrl): ?string
+{
+    try {
+        $response = telegram_http_request(
+            $authUrl,
+            'GET',
+            [
+                'Accept: text/plain, text/html;q=0.9, application/json;q=0.8',
+            ]
+        );
+    } catch (Throwable) {
+        return null;
+    }
+
+    $normalizedBody = trim((string) ($response['body'] ?? ''));
+    if ($normalizedBody !== 'redirect_uri required') {
+        return null;
+    }
+
+    return sprintf(
+        'Telegram отклоняет redirect_uri. Добавьте URL "%s" в @BotFather -> Bot Settings -> Web Login -> Allowed URLs.',
+        telegram_redirect_uri()
+    );
 }
 
 function telegram_random_string(int $bytes): string

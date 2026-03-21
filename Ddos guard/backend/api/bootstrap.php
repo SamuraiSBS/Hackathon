@@ -14,6 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 const DATA_FILE = __DIR__ . '/../data/state.json';
+const AVAILABLE_GAME_IDS = [
+    'shield-hop',
+    'edge-glide',
+    'bot-slicer',
+    'infra-stack',
+    'packet-catcher',
+];
 
 function now_iso(): string
 {
@@ -227,12 +234,36 @@ function stand_deactivated_at(): ?string
     return is_string($value) && $value !== '' ? $value : null;
 }
 
+function active_game_id(): string
+{
+    $state = load_state();
+    $gameId = trim((string) ($state['stand']['activeGameId'] ?? ''));
+
+    if (in_array($gameId, available_game_ids(), true)) {
+        return $gameId;
+    }
+
+    return available_game_ids()[0];
+}
+
+function set_active_game_id(string $gameId): void
+{
+    if (!in_array($gameId, available_game_ids(), true)) {
+        respond(['error' => 'Unknown game.'], 422);
+    }
+
+    $state = load_state();
+    $state['stand']['activeGameId'] = $gameId;
+    save_state($state);
+}
+
 function default_stand_state(): array
 {
     return [
         'authenticated' => false,
         'authenticatedAt' => null,
         'deactivatedAt' => null,
+        'activeGameId' => AVAILABLE_GAME_IDS[0],
     ];
 }
 
@@ -371,6 +402,10 @@ function load_state(): array
     $decoded['stand'] = migrate_legacy_stand_state($decoded);
     unset($decoded['stands']);
 
+    if (!in_array((string) ($decoded['stand']['activeGameId'] ?? ''), available_game_ids(), true)) {
+        $decoded['stand']['activeGameId'] = available_game_ids()[0];
+    }
+
     if (!isset($decoded['attempts']) || !is_array($decoded['attempts'])) {
         $decoded['attempts'] = seed_attempts();
     }
@@ -432,6 +467,167 @@ function find_attempt_index(array $attempts, string $sessionId): ?int
     return null;
 }
 
+function available_game_ids(): array
+{
+    return AVAILABLE_GAME_IDS;
+}
+
+function attempt_assigned_game_id(array $attempt): string
+{
+    $gameId = trim((string) ($attempt['assignedGameId'] ?? ''));
+
+    if (in_array($gameId, available_game_ids(), true)) {
+        return $gameId;
+    }
+
+    $legacyGameId = trim((string) ($attempt['gameId'] ?? ''));
+    if (in_array($legacyGameId, available_game_ids(), true)) {
+        return $legacyGameId;
+    }
+
+    return active_game_id();
+}
+
+function normalize_attempt_play(array $play): ?array
+{
+    $gameId = trim((string) ($play['gameId'] ?? ''));
+
+    if ($gameId === '') {
+        return null;
+    }
+
+    return [
+        'gameId' => $gameId,
+        'gameTitle' => trim((string) ($play['gameTitle'] ?? '')),
+        'result' => trim((string) ($play['result'] ?? 'defeat')) ?: 'defeat',
+        'reason' => trim((string) ($play['reason'] ?? '')),
+        'score' => (int) ($play['score'] ?? 0),
+        'durationSeconds' => (int) ($play['durationSeconds'] ?? 0),
+        'finishedAt' => trim((string) ($play['finishedAt'] ?? '')),
+    ];
+}
+
+function legacy_attempt_play(array $attempt): ?array
+{
+    return normalize_attempt_play([
+        'gameId' => $attempt['gameId'] ?? '',
+        'gameTitle' => $attempt['gameTitle'] ?? '',
+        'result' => $attempt['result'] ?? 'defeat',
+        'reason' => $attempt['reason'] ?? '',
+        'score' => $attempt['score'] ?? 0,
+        'durationSeconds' => $attempt['durationSeconds'] ?? 0,
+        'finishedAt' => $attempt['finishedAt'] ?? '',
+    ]);
+}
+
+function attempt_plays(array $attempt): array
+{
+    $plays = [];
+
+    if (isset($attempt['plays']) && is_array($attempt['plays'])) {
+        foreach ($attempt['plays'] as $play) {
+            if (!is_array($play)) {
+                continue;
+            }
+
+            $normalizedPlay = normalize_attempt_play($play);
+            if ($normalizedPlay !== null) {
+                $plays[] = $normalizedPlay;
+            }
+        }
+    }
+
+    if (count($plays) > 0) {
+        return $plays;
+    }
+
+    $legacyPlay = legacy_attempt_play($attempt);
+    return $legacyPlay === null ? [] : [$legacyPlay];
+}
+
+function attempt_total_score(array $attempt): int
+{
+    $totalScore = 0;
+
+    foreach (attempt_plays($attempt) as $play) {
+        $totalScore += (int) ($play['score'] ?? 0);
+    }
+
+    return $totalScore;
+}
+
+function attempt_wins_count(array $attempt): int
+{
+    return count(array_filter(
+        attempt_plays($attempt),
+        static fn(array $play): bool => ($play['result'] ?? '') === 'victory'
+    ));
+}
+
+function attempt_losses_count(array $attempt): int
+{
+    return count(array_filter(
+        attempt_plays($attempt),
+        static fn(array $play): bool => ($play['result'] ?? '') !== 'victory'
+    ));
+}
+
+function attempt_game_results(array $attempt): array
+{
+    $results = [];
+
+    foreach (attempt_plays($attempt) as $play) {
+        $gameId = (string) ($play['gameId'] ?? '');
+        if ($gameId === '') {
+            continue;
+        }
+
+        $results[$gameId] = [
+            'gameId' => $gameId,
+            'gameTitle' => (string) ($play['gameTitle'] ?? ''),
+            'score' => (int) ($play['score'] ?? 0),
+            'result' => (string) ($play['result'] ?? 'defeat'),
+            'finishedAt' => ($play['finishedAt'] ?? '') !== '' ? (string) $play['finishedAt'] : null,
+        ];
+    }
+
+    return array_values($results);
+}
+
+function latest_attempt_play(array $attempt): ?array
+{
+    $plays = attempt_plays($attempt);
+
+    if (count($plays) === 0) {
+        return null;
+    }
+
+    usort(
+        $plays,
+        static fn(array $left, array $right): int => strtotime((string) ($right['finishedAt'] ?? '')) <=> strtotime((string) ($left['finishedAt'] ?? ''))
+    );
+
+    return $plays[0];
+}
+
+function played_game_ids(array $attempt): array
+{
+    return array_values(array_unique(array_map(
+        static fn(array $play): string => (string) $play['gameId'],
+        attempt_plays($attempt)
+    )));
+}
+
+function games_played_count(array $attempt): int
+{
+    return count(played_game_ids($attempt));
+}
+
+function all_games_completed(array $attempt): bool
+{
+    return games_played_count($attempt) >= count(available_game_ids());
+}
+
 function player_name(array $attempt): string
 {
     $name = trim(($attempt['firstName'] ?? '') . ' ' . ($attempt['lastName'] ?? ''));
@@ -440,7 +636,7 @@ function player_name(array $attempt): string
         return $name;
     }
 
-    if (($attempt['telegram'] ?? '') !== '') {
+    if (($attempt['source'] ?? '') === 'telegram' && ($attempt['telegram'] ?? '') !== '') {
         return (string) $attempt['telegram'];
     }
 
@@ -454,13 +650,34 @@ function attempt_is_blocked(array $attempt): bool
 
 function leaderboard_from_attempts(array $attempts): array
 {
-    $completed = array_values(array_filter(
-        $attempts,
-        static fn(array $attempt): bool => ($attempt['status'] ?? '') === 'completed' && !attempt_is_blocked($attempt)
-    ));
+    $leaders = [];
+
+    foreach ($attempts as $attempt) {
+        if (attempt_is_blocked($attempt)) {
+            continue;
+        }
+
+        $plays = attempt_plays($attempt);
+        if (count($plays) === 0) {
+            continue;
+        }
+
+        $latestPlay = latest_attempt_play($attempt);
+        $leaders[] = [
+            'sessionId' => (string) ($attempt['sessionId'] ?? ''),
+            'playerName' => player_name($attempt),
+            'score' => attempt_total_score($attempt),
+            'wins' => attempt_wins_count($attempt),
+            'losses' => attempt_losses_count($attempt),
+            'gamesCompleted' => games_played_count($attempt),
+            'gamesAvailable' => count(available_game_ids()),
+            'gameResults' => attempt_game_results($attempt),
+            'finishedAt' => ($latestPlay['finishedAt'] ?? '') !== '' ? (string) $latestPlay['finishedAt'] : null,
+        ];
+    }
 
     usort(
-        $completed,
+        $leaders,
         static function (array $left, array $right): int {
             $scoreDiff = (int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0);
 
@@ -472,33 +689,43 @@ function leaderboard_from_attempts(array $attempts): array
         }
     );
 
-    $leaders = [];
-    foreach (array_slice($completed, 0, 12) as $index => $attempt) {
-        $leaders[] = [
+    $ranked = [];
+    foreach (array_slice($leaders, 0, 12) as $index => $leader) {
+        $ranked[] = [
             'rank' => $index + 1,
-            'sessionId' => $attempt['sessionId'],
-            'playerName' => player_name($attempt),
-            'score' => (int) ($attempt['score'] ?? 0),
-            'result' => $attempt['result'] ?? 'defeat',
-            'gameId' => $attempt['gameId'] ?? '',
-            'gameTitle' => $attempt['gameTitle'] ?? '',
-            'finishedAt' => $attempt['finishedAt'] ?? null,
+            'sessionId' => $leader['sessionId'],
+            'playerName' => $leader['playerName'],
+            'score' => (int) ($leader['score'] ?? 0),
+            'wins' => (int) ($leader['wins'] ?? 0),
+            'losses' => (int) ($leader['losses'] ?? 0),
+            'gamesCompleted' => (int) ($leader['gamesCompleted'] ?? 0),
+            'gamesAvailable' => (int) ($leader['gamesAvailable'] ?? 0),
+            'gameResults' => $leader['gameResults'] ?? [],
+            'finishedAt' => $leader['finishedAt'] ?? null,
         ];
     }
 
-    return $leaders;
+    return $ranked;
 }
 
 function summary_from_attempts(array $attempts): array
 {
-    $completed = array_values(array_filter(
-        $attempts,
-        static fn(array $attempt): bool => ($attempt['status'] ?? '') === 'completed' && !attempt_is_blocked($attempt)
-    ));
+    $allPlays = [];
+    $bestTotalScore = 0;
+
+    foreach ($attempts as $attempt) {
+        if (attempt_is_blocked($attempt)) {
+            continue;
+        }
+
+        $plays = attempt_plays($attempt);
+        $allPlays = array_merge($allPlays, $plays);
+        $bestTotalScore = max($bestTotalScore, attempt_total_score($attempt));
+    }
 
     $victories = count(array_filter(
-        $completed,
-        static fn(array $attempt): bool => ($attempt['result'] ?? '') === 'victory'
+        $allPlays,
+        static fn(array $play): bool => ($play['result'] ?? '') === 'victory'
     ));
 
     $telegramLeads = count(array_filter(
@@ -506,16 +733,11 @@ function summary_from_attempts(array $attempts): array
         static fn(array $attempt): bool => ($attempt['source'] ?? '') === 'telegram'
     ));
 
-    $bestScore = 0;
-    foreach ($completed as $attempt) {
-        $bestScore = max($bestScore, (int) ($attempt['score'] ?? 0));
-    }
-
     return [
         'totalLeads' => count($attempts),
-        'completedRuns' => count($completed),
+        'completedRuns' => count($allPlays),
         'victories' => $victories,
-        'bestScore' => $bestScore,
+        'bestScore' => $bestTotalScore,
         'telegramLeads' => $telegramLeads,
         'manualLeads' => count($attempts) - $telegramLeads,
     ];
@@ -530,19 +752,28 @@ function recent_leads_from_attempts(array $attempts): array
 
     $recent = [];
     foreach (array_slice($attempts, 0, 12) as $attempt) {
+        $latestPlay = latest_attempt_play($attempt);
+
         $recent[] = [
             'sessionId' => $attempt['sessionId'],
             'playerName' => player_name($attempt),
+            'assignedGameId' => attempt_assigned_game_id($attempt),
             'phone' => $attempt['phone'] ?? '',
-            'telegram' => $attempt['telegram'] ?? '',
+            'telegram' => ($attempt['source'] ?? 'manual') === 'telegram' ? ($attempt['telegram'] ?? '') : '',
             'source' => $attempt['source'] ?? 'manual',
             'status' => $attempt['status'] ?? 'registered',
             'blockedAt' => $attempt['blockedAt'] ?? null,
-            'result' => $attempt['result'] ?? null,
-            'gameTitle' => $attempt['gameTitle'] ?? '',
-            'score' => (int) ($attempt['score'] ?? 0),
+            'result' => $latestPlay['result'] ?? null,
+            'gameTitle' => $latestPlay['gameTitle'] ?? '',
+            'score' => attempt_total_score($attempt),
+            'wins' => attempt_wins_count($attempt),
+            'losses' => attempt_losses_count($attempt),
             'createdAt' => $attempt['createdAt'] ?? null,
-            'finishedAt' => $attempt['finishedAt'] ?? null,
+            'finishedAt' => ($latestPlay['finishedAt'] ?? '') !== '' ? $latestPlay['finishedAt'] : null,
+            'playedGameIds' => played_game_ids($attempt),
+            'gameResults' => attempt_game_results($attempt),
+            'gamesCompleted' => games_played_count($attempt),
+            'gamesAvailable' => count(available_game_ids()),
         ];
     }
 

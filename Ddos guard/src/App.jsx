@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLogin } from './components/AdminLogin';
+import { ExitSummary } from './components/ExitSummary';
 import { GameSummary } from './components/GameSummary';
 import { GameViewport } from './components/GameViewport';
 import { LeadCapture } from './components/LeadCapture';
 import { StandUnlock } from './components/StandUnlock';
 import { StartScreen } from './components/StartScreen';
-import { Leaderboard } from './components/Leaderboard';
-import { GameDescription } from './components/GameDescription';
 import { GAME_CATALOG, getGameById } from './data/gameCatalog';
 import {
   ApiError,
+  beginTelegramLogin,
   blockAttempt,
   checkAdminSession,
   checkStandSession,
@@ -19,7 +19,6 @@ import {
   getAttemptStatus,
   getPublicSnapshot,
   getTelegramAuthState,
-  getTelegramLoginUrl,
   hasPhpApi,
   loginAdmin,
   loginStand,
@@ -27,15 +26,17 @@ import {
   logoutStand,
   registerLead,
   resetLocalDemo,
+  setActiveGame,
   submitScore,
   unblockAttempt,
 } from './lib/api';
-import { savePlayer, loadPlayer, clearPlayer } from './lib/playerSession';
+import { displayName } from './lib/format';
 
 const phpApiEnabled = hasPhpApi();
 const standClosedMessage = 'Доступ завершён. Обратитесь к администратору.';
 const sessionFinishedMessage = 'Сессия завершена. Можно начать новую регистрацию.';
 const adminSessionExpiredMessage = 'Сессия завершена. Войдите снова.';
+const STAND_PROGRESS_KEY = 'ddos-guard-stand-progress-v1';
 
 const emptyAdminSnapshot = {
   leaderboard: [],
@@ -48,6 +49,9 @@ const emptyAdminSnapshot = {
     manualLeads: 0,
   },
   recentLeads: [],
+  stand: {
+    activeGameId: GAME_CATALOG[0].id,
+  },
 };
 
 const initialStandState = phpApiEnabled
@@ -57,6 +61,7 @@ const initialStandState = phpApiEnabled
       tokenConfigured: false,
       authenticatedAt: null,
       deactivatedAt: null,
+      activeGameId: GAME_CATALOG[0].id,
     }
   : {
       status: 'unlocked',
@@ -64,6 +69,7 @@ const initialStandState = phpApiEnabled
       tokenConfigured: false,
       authenticatedAt: null,
       deactivatedAt: null,
+      activeGameId: GAME_CATALOG[0].id,
     };
 
 const initialTelegramState = phpApiEnabled
@@ -80,15 +86,50 @@ const initialTelegramState = phpApiEnabled
       error: '',
     };
 
-const GAME_IDS = new Set(GAME_CATALOG.map((g) => g.id));
-
 function readRoute() {
-  return window.location.pathname === '/admin' ? 'admin' : 'stand';
+  if (window.location.hash === '#/admin') {
+    return 'admin';
+  }
+
+  if (window.location.hash === '#/exit') {
+    return 'exit';
+  }
+
+  return 'stand';
 }
 
-function readGameIdFromPath() {
-  const segment = window.location.pathname.slice(1);
-  return GAME_IDS.has(segment) ? segment : null;
+function readStandProgress() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const raw = window.sessionStorage.getItem(STAND_PROGRESS_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStandProgress(payload) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.sessionStorage.setItem(STAND_PROGRESS_KEY, JSON.stringify(payload));
+}
+
+function clearStandProgress() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.sessionStorage.removeItem(STAND_PROGRESS_KEY);
 }
 
 function isUnauthorized(error) {
@@ -104,15 +145,17 @@ function getStandUnlockError(error) {
 }
 
 export default function App() {
+  const initialProgress = readStandProgress();
   const [route, setRoute] = useState(readRoute());
-  const [phase, setPhase] = useState(() => loadPlayer() ? 'start' : 'lead');
+  const [phase, setPhase] = useState(initialProgress?.phase === 'start' ? 'brief' : initialProgress?.phase ?? 'lead');
   const [busy, setBusy] = useState(false);
   const [adapter, setAdapter] = useState('local-demo');
-  const [sessionId, setSessionId] = useState('');
-  const [player, setPlayer] = useState(() => loadPlayer());
-  const [selectedGameId, setSelectedGameId] = useState(GAME_CATALOG[0].id);
-  const [pendingGameId, setPendingGameId] = useState(readGameIdFromPath);
-  const [result, setResult] = useState(null);
+  const [sessionId, setSessionId] = useState(initialProgress?.sessionId ?? '');
+  const [player, setPlayer] = useState(initialProgress?.player ?? null);
+  const [playedGameIds, setPlayedGameIds] = useState(initialProgress?.playedGameIds ?? []);
+  const [gameResultsById, setGameResultsById] = useState(initialProgress?.gameResultsById ?? {});
+  const [selectedGameId, setSelectedGameId] = useState(initialProgress?.selectedGameId ?? GAME_CATALOG[0].id);
+  const [result, setResult] = useState(initialProgress?.result ?? null);
   const [adminSnapshot, setAdminSnapshot] = useState(emptyAdminSnapshot);
   const [appError, setAppError] = useState('');
   const [adminAuth, setAdminAuth] = useState({
@@ -127,8 +170,39 @@ export default function App() {
   const [mutatingSessionId, setMutatingSessionId] = useState('');
 
   const selectedGame = useMemo(() => getGameById(selectedGameId), [selectedGameId]);
+  const playerStats = useMemo(() => {
+    const values = Object.values(gameResultsById);
+    const wins = values.filter((entry) => entry.result === 'victory').length;
+    const losses = values.filter((entry) => entry.result !== 'victory').length;
+    const totalScore = values.reduce((sum, entry) => sum + (entry.score ?? 0), 0);
+
+    return {
+      gamesCompleted: values.length,
+      wins,
+      losses,
+      totalScore,
+    };
+  }, [gameResultsById]);
   const isAdminAuthenticated = adminAuth.status === 'authenticated';
   const isStandUnlocked = standAuth.status === 'unlocked';
+
+  function gameResultsMapFromPlays(plays = []) {
+    return plays.reduce((accumulator, play) => {
+      if (!play?.gameId) {
+        return accumulator;
+      }
+
+      accumulator[play.gameId] = {
+        gameId: play.gameId,
+        gameTitle: play.gameTitle ?? '',
+        result: play.result ?? 'defeat',
+        score: play.score ?? 0,
+        finishedAt: play.finishedAt ?? null,
+      };
+
+      return accumulator;
+    }, {});
+  }
 
   function applyStandSession(response, error = '') {
     setStandAuth({
@@ -137,6 +211,7 @@ export default function App() {
       tokenConfigured: response.tokenConfigured,
       authenticatedAt: response.authenticatedAt ?? null,
       deactivatedAt: response.deactivatedAt ?? null,
+      activeGameId: response.activeGameId || GAME_CATALOG[0].id,
     });
   }
 
@@ -151,65 +226,64 @@ export default function App() {
   }
 
   useEffect(() => {
-    const savedPlayer = loadPlayer();
-    if (savedPlayer) {
-      if (window.location.pathname === '/registration') {
-        window.history.replaceState(null, '', '/');
-      }
-    } else {
-      if (window.location.pathname !== '/registration') {
-        window.history.replaceState(null, '', '/registration');
-      }
-    }
+    const onHashChange = () => setRoute(readRoute());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   useEffect(() => {
-    const onPopState = () => {
-      setRoute(readRoute());
-      const path = window.location.pathname;
-      if (path === '/') {
-        setPhase('start');
-      } else if (path === '/registration') {
-        if (loadPlayer()) {
-          resetGameOnly();
-        } else {
-          resetStandFlow();
-        }
-      }
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+    if (sessionId === '' || !player) {
+      clearStandProgress();
+      return;
+    }
+
+    writeStandProgress({
+      phase,
+      sessionId,
+      player,
+      playedGameIds,
+      gameResultsById,
+      selectedGameId,
+      result,
+    });
+  }, [phase, sessionId, player, playedGameIds, gameResultsById, selectedGameId, result]);
+
+  useEffect(() => {
+    if (route !== 'exit') {
+      return;
+    }
+
+    if (!player || sessionId === '') {
+      window.location.hash = '#/';
+    }
+  }, [route, player, sessionId]);
+
+  useEffect(() => {
+    if (sessionId !== '') {
+      return;
+    }
+
+    if (standAuth.activeGameId) {
+      setSelectedGameId(standAuth.activeGameId);
+    }
+  }, [sessionId, standAuth.activeGameId]);
 
   function resetStandFlow() {
     setPhase('lead');
     setSessionId('');
     setPlayer(null);
-    clearPlayer();
+    setPlayedGameIds([]);
+    setGameResultsById({});
     setResult(null);
     setSelectedGameId(GAME_CATALOG[0].id);
-    setPendingGameId(null);
+    clearStandProgress();
     setTelegramAutoSubmitKey('');
-    if (window.location.pathname !== '/registration') {
-      window.history.pushState(null, '', '/registration');
-    }
     setTelegramAuth((current) => ({
       ...current,
       status: phpApiEnabled ? 'idle' : 'disabled',
       profile: null,
       error: '',
     }));
-  }
-
-  function resetGameOnly() {
-    setSessionId('');
-    setResult(null);
-    setSelectedGameId(GAME_CATALOG[0].id);
-    setPendingGameId(null);
-    setPhase('start');
-    if (window.location.pathname !== '/') {
-      window.history.pushState(null, '', '/');
-    }
   }
 
   async function refreshPublicSnapshot() {
@@ -224,6 +298,9 @@ export default function App() {
       leaderboard: nextSnapshot.leaderboard,
       summary: nextSnapshot.summary,
       recentLeads: nextSnapshot.recentLeads,
+      stand: {
+        activeGameId: nextSnapshot.stand?.activeGameId || GAME_CATALOG[0].id,
+      },
     });
   }
 
@@ -283,7 +360,7 @@ export default function App() {
   }, [route]);
 
   useEffect(() => {
-    if (route !== 'stand' || !phpApiEnabled || !isStandUnlocked || sessionId === '' || phase === 'lead') {
+    if (route !== 'stand' || !phpApiEnabled || !isStandUnlocked || sessionId === '') {
       return;
     }
 
@@ -300,6 +377,26 @@ export default function App() {
         if (response.blocked) {
           setAppError(sessionFinishedMessage);
           resetStandFlow();
+          return;
+        }
+
+        setPlayedGameIds(response.playedGameIds ?? []);
+        if (response.assignedGameId) {
+          setSelectedGameId(response.assignedGameId);
+        }
+        setGameResultsById(
+          (response.gameResults ?? []).reduce((accumulator, entry) => {
+            if (!entry?.gameId) {
+              return accumulator;
+            }
+
+            accumulator[entry.gameId] = entry;
+            return accumulator;
+          }, {})
+        );
+
+        if (phase === 'lead') {
+          setPhase('brief');
         }
       } catch (error) {
         if (cancelled) {
@@ -366,18 +463,7 @@ export default function App() {
             passwordConfigured: true,
             requiresPhpApi: false,
           });
-          try {
-            await refreshAdminSnapshot();
-          } catch (snapshotError) {
-            if (!cancelled && isUnauthorized(snapshotError)) {
-              setAdminAuth({
-                status: 'unauthenticated',
-                error: adminSessionExpiredMessage,
-                passwordConfigured: true,
-                requiresPhpApi: false,
-              });
-            }
-          }
+          await refreshAdminSnapshot();
           return;
         }
 
@@ -429,10 +515,10 @@ export default function App() {
         }
 
         setTelegramAuth({
-          status: 'ready',
+          status: response.configured ? 'ready' : 'disabled',
           configured: response.configured,
           profile: response.profile ?? null,
-          error: response.error ?? '',
+          error: response.error || (response.configured ? '' : 'Telegram Login не настроен на backend.'),
         });
       } catch (error) {
         if (cancelled) {
@@ -538,6 +624,7 @@ export default function App() {
         tokenConfigured: true,
         authenticatedAt: response.authenticatedAt ?? null,
         deactivatedAt: null,
+        activeGameId: standAuth.activeGameId,
       });
       resetStandFlow();
       await clearTelegramState();
@@ -562,6 +649,7 @@ export default function App() {
         tokenConfigured: true,
         authenticatedAt: standAuth.authenticatedAt,
         deactivatedAt: response.deactivatedAt ?? null,
+        activeGameId: standAuth.activeGameId,
       });
       resetStandFlow();
     } catch (error) {
@@ -582,17 +670,12 @@ export default function App() {
       setAdapter(response.adapter);
       setSessionId(response.sessionId);
       setPlayer(response.player);
-      savePlayer(response.player);
+      setPlayedGameIds(response.player.playedGameIds ?? []);
+      setGameResultsById(gameResultsMapFromPlays(response.player.plays ?? []));
+      setSelectedGameId(response.player.activeGameId || standAuth.activeGameId || GAME_CATALOG[0].id);
+      setResult(null);
       await clearTelegramState();
-      if (pendingGameId) {
-        setSelectedGameId(pendingGameId);
-        setPendingGameId(null);
-        setPhase('game');
-        window.history.replaceState(null, '', `/${pendingGameId}`);
-      } else {
-        setPhase('start');
-        window.history.replaceState(null, '', '/');
-      }
+      setPhase('brief');
       await refreshPublicSnapshot();
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -615,60 +698,10 @@ export default function App() {
     }
   }
 
-  async function handleSelectGame(gameId, forceNewSession = false) {
-    if (!player) {
-      setPendingGameId(gameId);
-      setPhase('lead');
-      window.history.pushState(null, '', '/registration');
-      return;
-    }
-
-    if (!sessionId || forceNewSession) {
-      setBusy(true);
-      setAppError('');
-      try {
-        const response = await registerLead({
-          firstName: player.firstName,
-          lastName: player.lastName,
-          phone: player.phone,
-          telegram: player.telegram || '',
-          source: 'manual',
-        });
-        setAdapter(response.adapter);
-        setSessionId(response.sessionId);
-        setPlayer(response.player);
-        savePlayer(response.player);
-      } catch (error) {
-        if (isUnauthorized(error)) {
-          lockCurrentStand(standClosedMessage);
-          resetStandFlow();
-        } else {
-          setAppError(error.message || 'Не удалось создать сессию.');
-          clearPlayer();
-          setPlayer(null);
-          setPhase('lead');
-          window.history.pushState(null, '', '/registration');
-        }
-        setBusy(false);
-        return;
-      }
-      setBusy(false);
-    }
-
-    setSelectedGameId(gameId);
-    setPhase('description');
-  }
-
-  function handleStartGame() {
+  function handleStartAssignedGame() {
+    setAppError('');
+    setResult(null);
     setPhase('game');
-    window.history.pushState(null, '', `/${selectedGameId}`);
-  }
-
-  function handleReturnToStart() {
-    setPhase('start');
-    if (window.location.pathname !== '/') {
-      window.history.pushState(null, '', '/');
-    }
   }
 
   async function handleGameComplete(gameResult) {
@@ -688,6 +721,8 @@ export default function App() {
 
       setAdapter(response.adapter);
       setResult(response.attempt);
+      setPlayedGameIds(response.attempt.playedGameIds ?? []);
+      setGameResultsById(gameResultsMapFromPlays(response.attempt.plays ?? []));
       setPhase('summary');
       await refreshPublicSnapshot();
     } catch (error) {
@@ -695,11 +730,11 @@ export default function App() {
         lockCurrentStand(standClosedMessage);
         resetStandFlow();
       } else if (error instanceof ApiError && error.status === 403) {
-        setAppError('Сессия завершена. Выберите новую игру.');
-        resetGameOnly();
+        setAppError(sessionFinishedMessage);
+        resetStandFlow();
       } else if (error instanceof ApiError && error.status === 409) {
-        setAppError('Эта попытка уже завершена. Выберите новую игру.');
-        resetGameOnly();
+        setAppError(error.message || 'Попытка уже завершена.');
+        setPhase('brief');
       } else {
         setAppError(error.message || 'Не удалось отправить результат игры.');
       }
@@ -715,6 +750,9 @@ export default function App() {
       leaderboard: nextSnapshot.leaderboard,
       summary: nextSnapshot.summary,
       recentLeads: nextSnapshot.recentLeads,
+      stand: {
+        activeGameId: nextSnapshot.stand?.activeGameId || GAME_CATALOG[0].id,
+      },
     });
   }
 
@@ -734,6 +772,32 @@ export default function App() {
       }
 
       setAppError(error.message || 'Не удалось обновить данные.');
+    }
+  }
+
+  async function handleAdminSetActiveGame(gameId) {
+    setAppError('');
+
+    try {
+      await setActiveGame(gameId);
+      await refreshAdminSnapshot();
+      setStandAuth((current) => ({
+        ...current,
+        activeGameId: gameId,
+      }));
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        setAdminAuth({
+          status: 'unauthenticated',
+          error: adminSessionExpiredMessage,
+          passwordConfigured: true,
+          requiresPhpApi: false,
+        });
+        setAdminSnapshot(emptyAdminSnapshot);
+        return;
+      }
+
+      setAppError(error.message || 'Не удалось выбрать активный режим.');
     }
   }
 
@@ -792,6 +856,13 @@ export default function App() {
 
     try {
       await loginAdmin(password);
+      setAdminAuth({
+        status: 'authenticated',
+        error: '',
+        passwordConfigured: true,
+        requiresPhpApi: false,
+      });
+      await refreshAdminSnapshot();
     } catch (error) {
       const message = isUnauthorized(error) ? 'Неверный пароль.' : error.message || 'Не удалось выполнить вход.';
 
@@ -800,20 +871,6 @@ export default function App() {
         status: 'unauthenticated',
         error: message,
       }));
-      return;
-    }
-
-    setAdminAuth({
-      status: 'authenticated',
-      error: '',
-      passwordConfigured: true,
-      requiresPhpApi: false,
-    });
-
-    try {
-      await refreshAdminSnapshot();
-    } catch {
-      // Авторизация прошла успешно — ошибка загрузки снапшота не разлогиниваем
     }
   }
 
@@ -826,42 +883,57 @@ export default function App() {
       requiresPhpApi: false,
     });
     setAdminSnapshot(emptyAdminSnapshot);
-    window.history.pushState(null, '', '/');
-    setRoute('stand');
+    window.location.hash = '#/';
   }
 
-  function handleTelegramLogin() {
-    const loginUrl = getTelegramLoginUrl();
-
-    if (!loginUrl) {
-      setTelegramAuth({
-        status: 'error',
-        configured: false,
-        profile: null,
-        error: 'Telegram временно недоступен.',
-      });
-      return;
-    }
-
+  async function handleTelegramLogin() {
     setTelegramAuth((current) => ({
       ...current,
       status: 'redirecting',
       error: '',
     }));
-    window.location.assign(loginUrl);
+
+    try {
+      const loginUrl = await beginTelegramLogin();
+
+      if (!loginUrl) {
+        setTelegramAuth((current) => ({
+          ...current,
+          status: 'error',
+          error: 'Не удалось подготовить вход через Telegram.',
+        }));
+        return;
+      }
+
+      window.location.assign(loginUrl);
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        lockCurrentStand(standClosedMessage);
+        resetStandFlow();
+        return;
+      }
+
+      setTelegramAuth((current) => ({
+        ...current,
+        status: 'error',
+        error: error.message || 'Не удалось выполнить вход через Telegram.',
+      }));
+    }
   }
 
-  async function restartFlow() {
-    setResult(null);
-    await handleSelectGame(selectedGameId, true);
-    handleStartGame();
+  function handleOpenExitPage() {
+    window.location.hash = '#/exit';
   }
 
-  function handleChangePlayer() {
+  function handleBackFromExitPage() {
+    window.location.hash = '#/';
+    setPhase('brief');
+  }
+
+  function handleFinishSession() {
     resetStandFlow();
+    window.location.hash = '#/';
   }
-
-  const showLeaderboard = route === 'stand' && isStandUnlocked && phase === 'start';
 
   return (
     <div className="app-shell">
@@ -873,21 +945,20 @@ export default function App() {
           </div>
         </div>
         <nav className="topbar-nav">
+          {route !== 'admin' && isStandUnlocked && sessionId !== '' && !(route === 'stand' && phase === 'summary') ? (
+            <button className="button button--secondary topbar-action" onClick={handleOpenExitPage} type="button">
+              Выход
+            </button>
+          ) : null}
           {route === 'admin' && isAdminAuthenticated ? (
             <button className="button button--secondary topbar-action" onClick={handleAdminLogout} type="button">
               Выход
             </button>
           ) : null}
-          {route === 'stand' && isStandUnlocked && player ? (
-            <button className="button button--secondary topbar-action" onClick={handleChangePlayer} type="button">
-              Выйти
-            </button>
-          ) : null}
         </nav>
       </header>
 
-      <main className={`layout ${showLeaderboard ? '' : 'layout--single'}`}>
-        {showLeaderboard ? <Leaderboard /> : null}
+      <main className={`layout layout--single${route === 'stand' && phase === 'summary' ? ' layout--summary' : ''}`}>
         <section className="content">
           {appError ? <div className="form-error">{appError}</div> : null}
 
@@ -910,10 +981,12 @@ export default function App() {
 
           {route === 'admin' && isAdminAuthenticated ? (
             <AdminDashboard
+              activeGameId={adminSnapshot.stand.activeGameId}
               adapter={adapter}
               mutatingSessionId={mutatingSessionId}
               onBlockAttempt={handleAdminBlockAttempt}
               onStandDeactivate={handleStandDeactivate}
+              onSetActiveGame={handleAdminSetActiveGame}
               onStandUnlock={handleStandUnlock}
               onUnblockAttempt={handleAdminUnblockAttempt}
               onRefresh={handleAdminRefresh}
@@ -937,17 +1010,33 @@ export default function App() {
           {route === 'stand' && isStandUnlocked && phase === 'lead' ? (
             <LeadCapture busy={busy} onSubmit={handleLeadSubmit} onTelegramLogin={handleTelegramLogin} telegramAuth={telegramAuth} />
           ) : null}
-          {route === 'stand' && isStandUnlocked && phase === 'start' ? (
-            <StartScreen onSelectGame={handleSelectGame} player={player} />
-          ) : null}
-          {route === 'stand' && isStandUnlocked && phase === 'description' ? (
-            <GameDescription game={selectedGame} onPlay={handleStartGame} onBack={handleReturnToStart} />
+          {route === 'stand' && isStandUnlocked && phase === 'brief' && player ? (
+            <StartScreen
+              busy={busy}
+              game={selectedGame}
+              onStart={handleStartAssignedGame}
+              player={player}
+            />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'game' ? (
-            <GameViewport game={selectedGame} key={`${sessionId}-${selectedGame.id}`} onComplete={handleGameComplete} onReturnHome={handleReturnToStart} />
+            <GameViewport game={selectedGame} key={`${sessionId}-${selectedGame.id}`} onComplete={handleGameComplete} />
           ) : null}
           {route === 'stand' && isStandUnlocked && phase === 'summary' && result ? (
-            <GameSummary onChangeGame={handleReturnToStart} onRestart={restartFlow} result={result} selectedGame={selectedGame} />
+            <GameSummary
+              actionLabel="Завершить"
+              onAction={handleFinishSession}
+              playerName={displayName(player)}
+              result={result}
+              selectedGame={selectedGame}
+            />
+          ) : null}
+          {route === 'exit' && isStandUnlocked && player ? (
+            <ExitSummary
+              onBack={handleBackFromExitPage}
+              onFinish={handleFinishSession}
+              playerName={displayName(player)}
+              stats={playerStats}
+            />
           ) : null}
         </section>
       </main>

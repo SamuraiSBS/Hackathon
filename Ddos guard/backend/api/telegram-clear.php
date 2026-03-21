@@ -11,6 +11,7 @@ require_stand_access();
 clear_telegram_pending_profile();
 clear_telegram_error();
 clear_telegram_auth_flow();
+clear_telegram_return_url();
 
 respond([
     'ok' => true,

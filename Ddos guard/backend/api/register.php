@@ -17,10 +17,11 @@ $telegram = trim((string) ($payload['telegram'] ?? ''));
 $telegramId = trim((string) ($payload['telegramId'] ?? ''));
 $telegramPhotoUrl = trim((string) ($payload['telegramPhotoUrl'] ?? ''));
 $source = trim((string) ($payload['source'] ?? ''));
+$assignedGameId = active_game_id();
 $sessionId = create_id('lead');
 
 if ($source !== 'telegram' && $source !== 'manual') {
-    $source = $telegram !== '' || $telegramId !== '' ? 'telegram' : 'manual';
+    $source = $telegramId !== '' || $telegramPhotoUrl !== '' ? 'telegram' : 'manual';
 }
 
 if ($source === 'telegram') {
@@ -45,6 +46,10 @@ if ($source === 'telegram') {
     if ($phone === '') {
         respond(['error' => 'Field "phone" is required.'], 422);
     }
+
+    $telegram = '';
+    $telegramId = '';
+    $telegramPhotoUrl = '';
 }
 
 array_unshift(
@@ -58,9 +63,11 @@ array_unshift(
         'telegramId' => $telegramId,
         'telegramPhotoUrl' => $telegramPhotoUrl,
         'source' => $source,
+        'assignedGameId' => $assignedGameId,
         'consent' => true,
         'createdAt' => date(DATE_ATOM),
         'status' => 'registered',
+        'plays' => [],
     ]
 );
 
@@ -76,5 +83,8 @@ respond([
         'telegramId' => $telegramId,
         'telegramPhotoUrl' => $telegramPhotoUrl,
         'source' => $source,
+        'activeGameId' => $assignedGameId,
+        'playedGameIds' => [],
+        'gamesAvailable' => count(available_game_ids()),
     ],
 ]);

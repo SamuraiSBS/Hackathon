@@ -12,4 +12,7 @@ respond([
     'summary' => summary_from_attempts($state['attempts']),
     'leaderboard' => leaderboard_from_attempts($state['attempts']),
     'recentLeads' => recent_leads_from_attempts($state['attempts']),
+    'stand' => [
+        'activeGameId' => (string) ($state['stand']['activeGameId'] ?? active_game_id()),
+    ],
 ]);
