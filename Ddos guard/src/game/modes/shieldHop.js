@@ -68,7 +68,7 @@ class ShieldHopScene extends BasePhaserScene {
         fontFamily: '"IBM Plex Sans", sans-serif',
         fontSize: '18px',
         fontStyle: '600',
-        color: '#ffffff',
+        color: '#a8d8ff',
       })
       .setScrollFactor(0)
       .setDepth(10);
@@ -290,9 +290,9 @@ class ShieldHopScene extends BasePhaserScene {
   // --- Textures ---
 
   _generateTextures() {
-    // Shield (player) — white hexagon with blue outline
+    // Shield (player) — light blue hexagon with dark blue outline
     const sg = this.make.graphics({ add: false });
-    sg.fillStyle(0xffffff, 1);
+    sg.fillStyle(0x90c8f4, 1);
     sg.beginPath();
     sg.moveTo(21, 0);
     sg.lineTo(41, 16);
@@ -302,7 +302,7 @@ class ShieldHopScene extends BasePhaserScene {
     sg.lineTo(1, 16);
     sg.closePath();
     sg.fillPath();
-    sg.lineStyle(3, 0x0077ff, 1);
+    sg.lineStyle(3, 0x04509e, 1);
     sg.beginPath();
     sg.moveTo(21, 0);
     sg.lineTo(41, 16);
@@ -315,30 +315,30 @@ class ShieldHopScene extends BasePhaserScene {
     sg.generateTexture('shield', 42, 56);
     sg.destroy();
 
-    // Normal platform — white
+    // Normal platform — medium blue
     const pg = this.make.graphics({ add: false });
-    pg.fillStyle(0xffffff, 1);
+    pg.fillStyle(0x3a88d8, 1);
     pg.fillRect(0, 0, PLATFORM_MAX_WIDTH, PLATFORM_HEIGHT);
     pg.generateTexture('platform-normal', PLATFORM_MAX_WIDTH, PLATFORM_HEIGHT);
     pg.destroy();
 
-    // Boost platform — blue
+    // Boost platform — dark royal blue
     const bg = this.make.graphics({ add: false });
-    bg.fillStyle(0x0077ff, 1);
+    bg.fillStyle(0x0d3596, 1);
     bg.fillRect(0, 0, PLATFORM_MAX_WIDTH, PLATFORM_HEIGHT);
     bg.generateTexture('platform-boost', PLATFORM_MAX_WIDTH, PLATFORM_HEIGHT);
     bg.destroy();
 
-    // White particle
+    // Light blue particle
     const wp = this.make.graphics({ add: false });
-    wp.fillStyle(0xffffff, 1);
+    wp.fillStyle(0xaae0ff, 1);
     wp.fillCircle(4, 4, 4);
     wp.generateTexture('particle', 8, 8);
     wp.destroy();
 
-    // Blue particle
+    // Bright blue particle
     const bp = this.make.graphics({ add: false });
-    bp.fillStyle(0x0077ff, 1);
+    bp.fillStyle(0x40b8ff, 1);
     bp.fillCircle(4, 4, 4);
     bp.generateTexture('particle-blue', 8, 8);
     bp.destroy();
@@ -346,9 +346,9 @@ class ShieldHopScene extends BasePhaserScene {
 
   _drawBackground() {
     const bg = this.add.graphics().setScrollFactor(0).setDepth(0);
-    bg.fillGradientStyle(0x10161f, 0x10161f, 0x273750, 0x273750, 1, 1, 1, 1);
+    bg.fillGradientStyle(0x04111f, 0x04111f, 0x0a2040, 0x0a2040, 1, 1, 1, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);
-    bg.lineStyle(1, 0x0077ff, 0.12);
+    bg.lineStyle(1, 0x1560c0, 0.20);
     for (let x = 0; x < WIDTH; x += 60) {
       bg.beginPath();
       bg.moveTo(x, 0);
