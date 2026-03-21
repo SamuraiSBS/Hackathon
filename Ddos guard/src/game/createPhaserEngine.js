@@ -4,7 +4,7 @@ import { getModeById } from './modes';
 const WIDTH = 960;
 const HEIGHT = 540;
 
-export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
+export function createPhaserEngine({ parent, game, onHud, onFinish }) {
   const mode = getModeById(game.id);
   const SceneClass = mode.PhaserScene;
 
