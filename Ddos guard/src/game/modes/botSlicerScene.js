@@ -163,7 +163,7 @@ export class BotSlicerScene extends BasePhaserScene {
       ttl: 140,
     });
 
-    t.container.destroy();
+    this._destroyTarget(t);
   }
 
   update(time, delta) {
@@ -260,7 +260,7 @@ export class BotSlicerScene extends BasePhaserScene {
           this.missedBots += 1;
           this.combo = 0;
         }
-        t.container.destroy();
+        this._destroyTarget(t);
         return false;
       }
       return true;
@@ -376,15 +376,16 @@ export class BotSlicerScene extends BasePhaserScene {
     gfx.lineStyle(2, rimCol, 0.9);
     gfx.strokeCircle(0, 0, radius);
 
+    // ADD blend mode: black pixels contribute 0 to destination → no black background
     const label = this.add
       .text(0, 0, type === 'bot' ? 'BOT' : 'OK', {
         fontFamily: '"Space Grotesk", sans-serif',
         fontSize: '14px',
         fontStyle: '700',
         color: '#ffffff',
-        align: 'center',
       })
-      .setOrigin(0.5, 0.5);
+      .setOrigin(0.5, 0.5)
+      .setBlendMode('ADD');
 
     const x = rand(100, W - 100);
     const y = H + 40;
@@ -395,13 +396,17 @@ export class BotSlicerScene extends BasePhaserScene {
       y,
       vx: rand(-120, 120),
       vy: rand(-520, -400),
-      va: rand(-2.2, 2.2), // slow spin while flying
+      va: rand(-2.2, 2.2),
       angle: 0,
       radius,
       type,
       sliced: false,
       container,
     });
+  }
+
+  _destroyTarget(t) {
+    t.container.destroy();
   }
 }
 
