@@ -4,16 +4,16 @@ import { getModeById } from './modes';
 const WIDTH = 960;
 const HEIGHT = 540;
 
-export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
+export function createPhaserEngine({ container, game, onHud, onFinish }) {
   const mode = getModeById(game.id);
   const SceneClass = mode.PhaserScene;
 
   const phaserGame = new Phaser.Game({
-    type: Phaser.CANVAS,
-    canvas,
+    type: Phaser.AUTO,
+    parent: container,
     width: WIDTH,
     height: HEIGHT,
-    backgroundColor: '#0a0a1a',
+    backgroundColor: '#f8fbff',
     scene: SceneClass,
     callbacks: {
       preBoot: (g) => {
@@ -23,7 +23,8 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
       },
     },
     scale: {
-      mode: Phaser.Scale.NONE,
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     audio: {
       noAudio: true,

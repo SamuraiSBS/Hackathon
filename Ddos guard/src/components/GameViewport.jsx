@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { createGameEngine } from '../game/createEngine';
+import { getModeById } from '../game/modes';
 import { formatTimer } from '../lib/format';
 
 export function GameViewport({ game, onComplete, onReturnHome }) {
-  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const onCompleteRef = useRef(onComplete);
+  const isPhaser = getModeById(game.id).isPhaser ?? false;
   const [hud, setHud] = useState({
     score: 0,
     integrity: 3,
@@ -17,12 +19,12 @@ export function GameViewport({ game, onComplete, onReturnHome }) {
   }, [onComplete]);
 
   useEffect(() => {
-    if (!canvasRef.current) {
+    if (!containerRef.current) {
       return undefined;
     }
 
     const engine = createGameEngine({
-      canvas: canvasRef.current,
+      container: containerRef.current,
       game,
       onHud: setHud,
       onFinish: (result) => onCompleteRef.current(result),
@@ -61,8 +63,8 @@ export function GameViewport({ game, onComplete, onReturnHome }) {
         {game.goal} Управление: {game.controls}.
       </p>
 
-      <div className="canvas-shell">
-        <canvas aria-label={game.title} ref={canvasRef} />
+      <div className="canvas-shell" ref={containerRef}>
+        {!isPhaser && <canvas aria-label={game.title} />}
       </div>
 
       <div className="objective-note">{hud.objective}</div>

@@ -4,13 +4,14 @@ import { createPhaserEngine } from './createPhaserEngine';
 const WIDTH = 960;
 const HEIGHT = 540;
 
-export function createGameEngine({ canvas, game, onHud, onFinish }) {
+export function createGameEngine({ container, game, onHud, onFinish }) {
   const mode = getModeById(game.id);
 
   if (mode.isPhaser) {
-    return createPhaserEngine({ canvas, game, onHud, onFinish });
+    return createPhaserEngine({ container, game, onHud, onFinish });
   }
 
+  const canvas = container.querySelector('canvas');
   const context = canvas.getContext('2d');
   const state = mode.createState({ width: WIDTH, height: HEIGHT, durationSeconds: game.durationSeconds });
   const input = {
