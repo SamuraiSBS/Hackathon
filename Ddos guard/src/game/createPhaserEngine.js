@@ -22,6 +22,10 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
     width: WIDTH,
     height: HEIGHT,
     backgroundColor: '#0a0a1a',
+    physics: {
+      default: 'arcade',
+      arcade: { gravity: { y: 0 }, debug: false },
+    },
     scene: SceneClass,
     callbacks: {
       preBoot: (g) => {
@@ -40,12 +44,6 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
   });
 
   return {
-    destroy: () => {
-      phaserGame.destroy(true, false);
-      // Restore the original canvas so React's DOM matches its VDOM
-      if (host.parentElement) {
-        host.parentElement.replaceChild(canvas, host);
-      }
-    },
+    destroy: () => phaserGame.destroy(false, false),
   };
 }
