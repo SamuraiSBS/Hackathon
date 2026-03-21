@@ -173,17 +173,17 @@ export class EdgeGlideScene extends BasePhaserScene {
     g.clear();
 
     // Base fill
-    g.fillStyle(0x14532d, 1);
+    g.fillStyle(0x0d3b6e, 1);
     g.fillRect(0, PLAY_H, WIDTH, GROUND_H);
 
     // Scrolling lighter stripe blocks
-    g.fillStyle(0x166534, 1);
+    g.fillStyle(0x1565c0, 1);
     for (let x = -this._groundOffset; x < WIDTH + 48; x += 48) {
       g.fillRect(x, PLAY_H, 24, GROUND_H);
     }
 
     // Top bright border
-    g.fillStyle(0x4ade80, 1);
+    g.fillStyle(0x90caf9, 1);
     g.fillRect(0, PLAY_H, WIDTH, 5);
   }
 
@@ -205,41 +205,41 @@ export class EdgeGlideScene extends BasePhaserScene {
     // ── Top pipe ─────────────────────────────────────────────────
     if (topH > 0) {
       // Body
-      g.fillStyle(0x166534, 1);
+      g.fillStyle(0x1565c0, 1);
       g.fillRect(obs.x, 0, obs.width, topH);
       // Highlight stripe
-      g.fillStyle(0x22c55e, 0.25);
+      g.fillStyle(0x42a5f5, 0.25);
       g.fillRect(obs.x + 5, 0, 8, topH);
 
       // Cap
       const capTop = Math.max(0, topH - capH);
       const capActualH = topH - capTop;
-      g.fillStyle(0x15803d, 1);
+      g.fillStyle(0x1976d2, 1);
       g.fillRect(obs.x - capW, capTop, obs.width + capW * 2, capActualH);
-      g.lineStyle(2, 0x4ade80, 1);
+      g.lineStyle(2, 0x90caf9, 1);
       g.strokeRect(obs.x - capW, capTop, obs.width + capW * 2, capActualH);
       // Cap highlight
-      g.fillStyle(0x4ade80, 0.35);
+      g.fillStyle(0x90caf9, 0.35);
       g.fillRect(obs.x - capW + 5, capTop + 3, 7, capActualH - 6);
     }
 
     // ── Bottom pipe ──────────────────────────────────────────────
     if (botH > 0) {
       // Body
-      g.fillStyle(0x166534, 1);
+      g.fillStyle(0x1565c0, 1);
       g.fillRect(obs.x, botY, obs.width, botH);
       // Highlight stripe
-      g.fillStyle(0x22c55e, 0.25);
+      g.fillStyle(0x42a5f5, 0.25);
       g.fillRect(obs.x + 5, botY, 8, botH);
 
       // Cap
       const capActualH = Math.min(capH, botH);
-      g.fillStyle(0x15803d, 1);
+      g.fillStyle(0x1976d2, 1);
       g.fillRect(obs.x - capW, botY, obs.width + capW * 2, capActualH);
-      g.lineStyle(2, 0x4ade80, 1);
+      g.lineStyle(2, 0x90caf9, 1);
       g.strokeRect(obs.x - capW, botY, obs.width + capW * 2, capActualH);
       // Cap highlight
-      g.fillStyle(0x4ade80, 0.35);
+      g.fillStyle(0x90caf9, 0.35);
       g.fillRect(obs.x - capW + 5, botY + 3, 7, capActualH - 6);
     }
   }
@@ -304,13 +304,7 @@ export class EdgeGlideScene extends BasePhaserScene {
 
   _triggerHitFlash() {
     this.tweens.killTweensOf(this._playerGfx);
-    this.tweens.add({
-      targets: this._playerGfx,
-      alpha: { from: 0.15, to: 1 },
-      duration: 100,
-      repeat: 3,
-      yoyo: true,
-    });
+    this._playerGfx.setAlpha(1);
   }
 
   _spawnPassEffect() {
