@@ -8,9 +8,17 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
   const mode = getModeById(game.id);
   const SceneClass = mode.PhaserScene;
 
+  // Replace the React-managed <canvas> with a host <div>.
+  // Phaser then creates its own <canvas> inside that div.
+  // This prevents Phaser's ScaleManager from fighting CSS layout.
+  const shellDiv = canvas.parentElement;
+  const host = document.createElement('div');
+  host.className = 'phaser-host';
+  shellDiv.replaceChild(host, canvas);
+
   const phaserGame = new Phaser.Game({
     type: Phaser.CANVAS,
-    canvas,
+    parent: host,
     width: WIDTH,
     height: HEIGHT,
     backgroundColor: '#0a0a1a',
@@ -24,6 +32,7 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
     },
     scale: {
       mode: Phaser.Scale.NONE,
+      expandParent: false,
     },
     audio: {
       noAudio: true,
@@ -31,6 +40,12 @@ export function createPhaserEngine({ canvas, game, onHud, onFinish }) {
   });
 
   return {
-    destroy: () => phaserGame.destroy(true, false),
+    destroy: () => {
+      phaserGame.destroy(true, false);
+      // Restore the original canvas so React's DOM matches its VDOM
+      if (host.parentElement) {
+        host.parentElement.replaceChild(canvas, host);
+      }
+    },
   };
 }
