@@ -50,15 +50,6 @@ export class InfraStackScene extends BasePhaserScene {
       align: 'center',
     }).setOrigin(0.5, 0);
 
-    this._layerDots = this.add.text(WIDTH / 2, 56, '', {
-      fontFamily: '"IBM Plex Sans", sans-serif',
-      fontStyle: '700',
-      fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-      align: 'center',
-    }).setOrigin(0.5, 0);
 
     this._keys = this.input.keyboard.addKeys({
       space: Phaser.Input.Keyboard.KeyCodes.SPACE,
@@ -107,7 +98,7 @@ export class InfraStackScene extends BasePhaserScene {
     this._camY += (targetCamY - this._camY) * Math.min(1, 5 * dt);
 
     this._redraw();
-    this.emitHud(this._score, 3, `Слои: ${this._layers}/10`);
+    this.emitHud(this._score, 3, `Слои: ${this._layers}`);
   }
 
   _placeBlock() {
@@ -163,14 +154,6 @@ export class InfraStackScene extends BasePhaserScene {
       onComplete: () => popup.destroy(),
     });
 
-    if (this._layers >= 10) {
-      this.finish({
-        result: 'victory',
-        score: this._score + Math.ceil(this.timeLeft) * 8,
-        reason: 'Инфраструктура выдержала. Слои работают как единое целое. Теперь эту систему не так просто сломать.',
-      });
-      return;
-    }
 
     this._active = {
       x: this._layers % 2 === 0 ? 36 : WIDTH - nextWidth - 36,
@@ -275,9 +258,5 @@ export class InfraStackScene extends BasePhaserScene {
     const tl = Math.ceil(this.timeLeft);
     this._timerText.setText(`⏱  ${tl} сек`);
 
-    // Layer progress as dots
-    const filled = this._layers - 1;
-    const dots = Array.from({ length: 9 }, (_, i) => (i < filled ? '●' : '○')).join('  ');
-    this._layerDots.setText(dots);
   }
 }
