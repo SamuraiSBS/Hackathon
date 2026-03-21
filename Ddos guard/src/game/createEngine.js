@@ -8,7 +8,7 @@ export function createGameEngine({ canvas, game, onHud, onFinish }) {
   const mode = getModeById(game.id);
 
   if (mode.isPhaser) {
-    return createPhaserEngine({ canvas, game, onHud, onFinish });
+    return createPhaserEngine({ parent: canvas, game, onHud, onFinish });
   }
 
   const context = canvas.getContext('2d');
